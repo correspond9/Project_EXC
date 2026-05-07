@@ -1,0 +1,189 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/correspond9/project_exc
+
+jobs:
+  # ============================================================
+  # JOB 1: Build and push all backend service images
+  # Runs in parallel across all services using a matrix strategy
+  # ============================================================
+  build-services:
+    name: Build & Push — ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - user-service
+          - market-data-service
+          - order-service
+          - simulation-engine
+          - execution-service
+          - portfolio-service
+          - wallet-service
+          - risk-service
+          - notification-service
+          - admin-service
+          - worker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/${{ matrix.service }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================
+  # JOB 2: Build and push Nginx image
+  # ============================================================
+  build-nginx:
+    name: Build & Push — nginx
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/nginx
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+
+      - name: Build and push nginx
+        uses: docker/build-push-action@v5
+        with:
+          context: ./infrastructure/nginx
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================
+  # JOB 3: Build and push Web Frontend image
+  # ============================================================
+  build-frontend:
+    name: Build & Push — web-frontend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/web-frontend
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+
+      - name: Build and push web-frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend/web
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================
+  # JOB 4: Trigger Coolify deploy after all images are pushed
+  # Requires GitHub Secrets:
+  #   COOLIFY_WEBHOOK_URL   — from Coolify project settings
+  #   COOLIFY_WEBHOOK_TOKEN — from Coolify project settings
+  # ============================================================
+  deploy:
+    name: Trigger Coolify Deploy
+    runs-on: ubuntu-latest
+    needs:
+      - build-services
+      - build-nginx
+      - build-frontend
+    steps:
+      - name: Trigger Coolify webhook
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET "${{ secrets.COOLIFY_WEBHOOK_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_WEBHOOK_TOKEN }}")
+
+          echo "Coolify webhook response: HTTP $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -ne 200 ] && [ "$HTTP_STATUS" -ne 201 ]; then
+            echo "ERROR: Coolify webhook returned $HTTP_STATUS. Deploy may not have triggered."
+            exit 1
+          fi
+
+          echo "Deploy triggered successfully."
+
+      - name: Post deploy summary
+        run: |
+          echo "====================================="
+          echo " Deploy Summary"
+          echo "====================================="
+          echo " Commit : ${{ github.sha }}"
+          echo " Branch : ${{ github.ref_name }}"
+          echo " Actor  : ${{ github.actor }}"
+          echo " Time   : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "====================================="

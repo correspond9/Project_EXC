@@ -1,0 +1,13 @@
+# Phase 4+ only — real exchange connectivity via CCXT (Binance Spot & Futures)
+# This service is disabled in simulation mode.
+# It starts only when Docker Compose is run with --profile live.
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+sqlalchemy[asyncio]==2.0.35
+alembic==1.13.3
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+redis==5.1.1
+ccxt==4.4.12
+pydantic-settings==2.5.2
+httpx==0.27.2

@@ -1,0 +1,101 @@
+# =============================================================================
+# XChange Platform — .gitignore
+# =============================================================================
+
+# --- Environment & Secrets (NEVER commit these) ---
+.env
+.env.local
+.env.production
+*.env
+secrets/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+
+# --- Node / Frontend ---
+node_modules/
+.next/
+.nuxt/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.pnp.js
+
+# --- Docker ---
+*.tar
+docker-compose.override.local.yml
+
+# --- Databases & Data ---
+*.sqlite3
+*.db
+postgres_data/
+redis_data/
+
+# --- Logs ---
+logs/
+*.log
+
+# --- IDE & OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Certificates ---
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# --- Test outputs ---
+test-results/
+junit.xml
+
+# --- Alembic (keep versions, ignore compiled) ---
+services/**/alembic/versions/__pycache__/
+
+# --- Mobile (React Native) ---
+mobile/.expo/
+mobile/node_modules/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/ios/Pods/
+mobile/ios/build/

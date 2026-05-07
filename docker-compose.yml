@@ -1,0 +1,256 @@
+version: '3.9'
+
+# =============================================================================
+# XChange Platform — Docker Compose
+# All services run on the internal xchange-net network.
+# Only nginx is exposed to the host on port 80.
+# For local development with exposed service ports, see docker-compose.override.yml
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # INFRASTRUCTURE
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: xchange-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - xchange-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: xchange-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - xchange-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: ./infrastructure/nginx
+    container_name: xchange-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - user-service
+      - market-data-service
+      - order-service
+      - portfolio-service
+      - wallet-service
+      - notification-service
+      - admin-service
+      - web-frontend
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # BACKEND SERVICES
+  # ---------------------------------------------------------------------------
+
+  user-service:
+    build:
+      context: ./services/user-service
+    container_name: xchange-user-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  market-data-service:
+    build:
+      context: ./services/market-data-service
+    container_name: xchange-market-data-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: ./services/order-service
+    container_name: xchange-order-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  simulation-engine:
+    build:
+      context: ./services/simulation-engine
+    container_name: xchange-simulation-engine
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  # execution-service is Phase 4+. Start only with: docker compose --profile live up
+  execution-service:
+    build:
+      context: ./services/execution-service
+    container_name: xchange-execution-service
+    env_file: .env
+    profiles:
+      - live
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  portfolio-service:
+    build:
+      context: ./services/portfolio-service
+    container_name: xchange-portfolio-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  wallet-service:
+    build:
+      context: ./services/wallet-service
+    container_name: xchange-wallet-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  risk-service:
+    build:
+      context: ./services/risk-service
+    container_name: xchange-risk-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+    container_name: xchange-notification-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  admin-service:
+    build:
+      context: ./services/admin-service
+    container_name: xchange-admin-service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./services/worker
+    container_name: xchange-worker
+    command: celery -A tasks worker --loglevel=info --concurrency=4
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # FRONTEND
+  # ---------------------------------------------------------------------------
+
+  web-frontend:
+    build:
+      context: ./frontend/web
+    container_name: xchange-web-frontend
+    env_file: .env
+    networks:
+      - xchange-net
+    restart: unless-stopped
+
+# ---------------------------------------------------------------------------
+# VOLUMES & NETWORKS
+# ---------------------------------------------------------------------------
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  xchange-net:
+    driver: bridge

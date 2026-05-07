@@ -1,0 +1,79 @@
+# =============================================================================
+# docker-compose.override.yml — Local Development Overrides
+# This file is auto-loaded by docker compose alongside docker-compose.yml.
+# It exposes each service port on localhost for direct API testing/debugging.
+# NEVER deploy this file to production.
+# =============================================================================
+
+services:
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  user-service:
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./services/user-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  market-data-service:
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./services/market-data-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  order-service:
+    ports:
+      - "8003:8000"
+    volumes:
+      - ./services/order-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  simulation-engine:
+    ports:
+      - "8004:8000"
+    volumes:
+      - ./services/simulation-engine:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  portfolio-service:
+    ports:
+      - "8006:8000"
+    volumes:
+      - ./services/portfolio-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  wallet-service:
+    ports:
+      - "8007:8000"
+    volumes:
+      - ./services/wallet-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  risk-service:
+    ports:
+      - "8008:8000"
+    volumes:
+      - ./services/risk-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  notification-service:
+    ports:
+      - "8009:8000"
+    volumes:
+      - ./services/notification-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  admin-service:
+    ports:
+      - "8010:8000"
+    volumes:
+      - ./services/admin-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
