@@ -249,17 +249,92 @@ Frontend clients (via WebSocket /ws/market/{symbol})
 
 ## 9. Simulation Engine — Fill Logic
 
-| Order Type | Fill Rule |
-|------------|-----------|
-| MARKET (Spot) | Fill immediately at current `last_price` from Binance feed |
-| LIMIT (Spot) | Fill when market price crosses the limit price; use limit price as fill price |
-| STOP-LOSS | Trigger when price crosses stop level; then fill as MARKET |
-| TAKE-PROFIT | Trigger when price crosses target level; then fill as MARKET |
-| FUTURES LONG | Same as above + track margin, update unrealised P&L on each price tick |
-| FUTURES SHORT | Same as above with inverse P&L direction |
-| OPTIONS | Phase 3: simulate using Black-Scholes pricing model against real underlying price |
+### 9.1 Core Principle — Order Book Depth Fills
 
-**Slippage simulation (optional for realism):** In simulation mode, a configurable slippage factor (e.g. 0.01%–0.1%) can be applied to market order fills to teach students about real execution quality.
+All fills in the simulation engine are executed by **walking the live Binance order book depth ladder**, not by using a single `last_price`. This mirrors real exchange behaviour and teaches students how large orders interact with actual market liquidity.
+
+- **BUY orders** consume the **ask** side of the order book (lowest ask first, walking up).
+- **SELL orders** consume the **bid** side of the order book (highest bid first, walking down).
+
+The live order book is sourced from market-data-service, which maintains the latest depth snapshot from the Binance WebSocket stream.
+
+---
+
+### 9.2 Market Order Fill Algorithm
+
+When a Market order is received:
+
+1. **Fetch the current order book** for the symbol from market-data-service (top N levels of asks for BUY, bids for SELL).
+2. **Walk the depth ladder** level by level, consuming quantity in price-priority order:
+   - Take all available quantity at level 0 (best price).
+   - If the order is not yet fully filled, continue to level 1, level 2, etc.
+   - At each level, record a separate `order_fills` record with that level's price and quantity consumed.
+3. **If the entire order book depth snapshot does not contain enough quantity** to fill the remaining order:
+   - Record all fills obtained so far.
+   - Update order status to `PARTIALLY_FILLED`.
+   - Wait for the **top 3 levels of the real Binance order book to refresh** (i.e., the engine monitors the WebSocket feed and detects that those levels have changed — quantities updated or new price levels appear).
+   - Once the book refreshes, re-fetch the new depth snapshot and resume filling from Step 1 with the remaining unfilled quantity.
+   - Repeat this cycle until the order is fully filled (`FILLED`).
+4. Throughout the fill cycle, publish a fill event to Redis (`fills.{user_id}`) after each partial fill so the frontend can show real-time progress.
+
+```
+MARKET BUY — Example
+
+Order: Buy 5 BTC
+
+Ask ladder (from Binance):
+  Ask[0]: 65,100 USDT × 1.5 BTC   → Fill 1.5 BTC @ 65,100
+  Ask[1]: 65,120 USDT × 2.0 BTC   → Fill 2.0 BTC @ 65,120
+  Ask[2]: 65,150 USDT × 0.8 BTC   → Fill 0.8 BTC @ 65,150
+  — Total filled so far: 4.3 BTC. Remaining: 0.7 BTC —
+  Ask[3]: 65,200 USDT × 0.3 BTC   → Partially fills, still 0.4 BTC remaining
+  — Book exhausted at snapshot. Set status: PARTIALLY_FILLED —
+  — Wait for top 3 ask levels to refresh on Binance WebSocket —
+  — New snapshot fetched. Resume filling remaining 0.4 BTC —
+  Ask[0]: 65,210 USDT × 2.0 BTC   → Fill 0.4 BTC @ 65,210
+  — Order FILLED —
+```
+
+---
+
+### 9.3 Limit Order Fill Algorithm
+
+When a Limit order is received:
+
+1. Set order status to `OPEN`. Store in Redis open-orders set for the symbol.
+2. Subscribe to the live order book WebSocket updates for that symbol.
+3. On each book update, check whether the limit price condition is met:
+   - **BUY Limit**: The best ask (`asks[0].price`) must be ≤ limit price.
+   - **SELL Limit**: The best bid (`bids[0].price`) must be ≥ limit price.
+4. When the condition is met, apply the **same depth-walk fill algorithm** as Market orders (Section 9.2), but **only consume levels at or better than the limit price**:
+   - BUY: consume asks where `ask_price ≤ limit_price` only.
+   - SELL: consume bids where `bid_price ≥ limit_price` only.
+5. If mid-fill the book moves away from the limit price before the order is fully filled, stop consuming, remain `PARTIALLY_FILLED`, and resume when the condition is met again on the next book update.
+6. Fill price for each level is the actual level price (not the limit price) — this is the realistic maker/taker model. Students see their limit order may fill at multiple price levels, all at or better than their specified price.
+
+---
+
+### 9.4 Order Type Summary
+
+| Order Type | Trigger | Fill Price Source | Partial Fill Behaviour |
+|------------|---------|-------------------|------------------------|
+| MARKET (BUY) | Immediate | Walk ask depth ladder (best ask first) | Wait for top 3 ask levels to refresh, then continue |
+| MARKET (SELL) | Immediate | Walk bid depth ladder (best bid first) | Wait for top 3 bid levels to refresh, then continue |
+| LIMIT (BUY) | When best ask ≤ limit price | Walk ask ladder, levels ≤ limit price only | Pause if book moves above limit; resume when eligible asks return |
+| LIMIT (SELL) | When best bid ≥ limit price | Walk bid ladder, levels ≥ limit price only | Pause if book moves below limit; resume when eligible bids return |
+| STOP-LOSS | When market price crosses stop level | Convert to MARKET, apply Market fill algorithm | Same as MARKET |
+| TAKE-PROFIT | When market price crosses target level | Convert to MARKET, apply Market fill algorithm | Same as MARKET |
+| FUTURES LONG | Same as above | Same as above | Same as above + track margin, update unrealised P&L on each price tick |
+| FUTURES SHORT | Same as above | Same as above (bid side) | Same as above with inverse P&L direction |
+| OPTIONS | Phase 3 | Black-Scholes pricing against real underlying price | — |
+
+---
+
+### 9.5 Order Book Refresh Detection
+
+To determine that the "top 3 levels have refreshed" the simulation engine monitors the live order book WebSocket stream from market-data-service. A refresh is considered to have occurred when **at least one of the top 3 levels shows a change in price or quantity** compared to the snapshot that was used for the previous fill attempt. The engine then re-attempts filling with the new snapshot.
+
+This ensures the engine never spins in a tight loop hitting a stale order book, and that each fill attempt uses genuinely new market data.
 
 ---
 

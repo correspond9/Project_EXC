@@ -15,7 +15,7 @@
 Build a **full crypto trading exchange platform** that operates in two execution modes — **Simulation** and **Live** — using the exact same codebase, user interface, features, and accounts.
 
 The only difference between Simulation and Live mode is **where the trade gets executed**:
-- **Simulation Mode**: Orders are filled internally by a paper-trading engine at real live market prices. No real money moves.
+- **Simulation Mode**: Orders are filled internally by a paper-trading engine that walks the **real live Binance order book depth ladder** — the same bid/ask levels a real trader would consume. Market orders fill level by level through the book; large orders that exhaust available depth partially fill and wait for the book to refresh before continuing. No real money moves.
 - **Live Mode**: Orders are routed to a real external exchange (Binance) via an API connection. Real money is involved.
 
 Everything else — user experience, account structure, order types, risk management, P&L, reporting, admin controls — is **100% identical** in both modes.
@@ -275,9 +275,13 @@ These are logical groupings (detailed schema per service to be done in Phase 1 d
 ### Phase 2 — Full Simulation Trading Engine (Months 3 – 4)
 **Goal:** Full simulation order matching, all order types, Spot + Futures
 
-- [ ] Simulation execution engine (paper fills at real market prices)
+- [ ] Simulation execution engine — depth-ladder fill model:
+  - Market orders: walk the live Binance ask/bid ladder level by level; multiple fill records per order at each level's price
+  - Partial fills: if book depth is insufficient, set order to PARTIALLY_FILLED and resume when the top 3 book levels refresh
+  - Limit orders: fill only through levels at or better than the limit price using same ladder walk
+  - Stop-Loss / Take-Profit: trigger on price condition, then execute as Market fill via depth ladder
 - [ ] All order types: Market, Limit, Stop-Loss, Take-Profit
-- [ ] Order book display (simulated depth using Binance data)
+- [ ] Order book display (live depth from Binance WebSocket)
 - [ ] Portfolio service — track open positions, P&L, balance
 - [ ] Trade history page
 - [ ] Futures simulation — long/short positions, leverage, margin

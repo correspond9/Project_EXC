@@ -337,23 +337,35 @@ xchange-platform/
 - [ ] FastAPI app skeleton inside `services/simulation-engine/`
 - [ ] Redis subscriber: listen on channel `orders.simulation`
 - [ ] On order received: route to correct fill handler based on `order_type`
+- [ ] At startup: fetch and cache the live order book snapshot for each active symbol from market-data-service
+- [ ] Maintain a live order book mirror per symbol by subscribing to `market.orderbook.{symbol}` Redis channel; update cache on each message
 
 #### Market Order Fill Handler
-- [ ] Fetch current `last_price` from market-data-service via internal REST call
-- [ ] Apply optional slippage (configurable, default 0.05% — stored in platform_settings)
-- [ ] Create `order_fills` record at fill price
-- [ ] Update order status to FILLED in `orders` table
-- [ ] Deduct cost from `simulation_wallets.locked_balance`
-- [ ] Add acquired asset to simulation wallet (for BUY); deduct asset, add USDT (for SELL)
-- [ ] Publish fill event to Redis: `fills.{user_id}`
+- [ ] Fetch the current order book snapshot from the in-memory cache (ask side for BUY, bid side for SELL)
+- [ ] Walk the depth ladder level by level in price-priority order:
+  - BUY: consume ask[0] fully, then ask[1], then ask[2] … until order quantity is fully satisfied
+  - SELL: consume bid[0] fully, then bid[1], then bid[2] … until order quantity is fully satisfied
+  - For each level consumed: create an `order_fills` record (price = that level's price, quantity = quantity taken from that level)
+- [ ] If the snapshot is exhausted before the order is fully filled:
+  - Record all fills obtained so far; set order status to `PARTIALLY_FILLED`
+  - Register a "book refresh watcher" for the symbol: monitor the live order book stream and detect when **at least one of the top 3 levels changes** (price or quantity)
+  - On book refresh: re-fetch the new snapshot and resume the depth-walk with the remaining unfilled quantity
+  - Repeat until the order is fully filled (`FILLED`)
+- [ ] After each partial or full fill: update `simulation_wallets.locked_balance` and add acquired asset (or USDT for SELL)
+- [ ] Publish fill event to Redis: `fills.{user_id}` after every individual level fill (not just on completion)
 
 #### Limit Order Fill Handler
-- [ ] On LIMIT order received: set order status to OPEN, store in `open_orders` in Redis (keyed by symbol)
-- [ ] Background checker: subscribe to `market.ticker.{symbol}`, check all open limit orders for that symbol
-  - BUY limit: fill when `last_price <= limit_price`
-  - SELL limit: fill when `last_price >= limit_price`
-- [ ] On trigger: fill at the limit price (not market price)
-- [ ] Same wallet and fill record logic as Market order
+- [ ] On LIMIT order received: set order status to `OPEN`, store in Redis open-orders set keyed by symbol
+- [ ] Subscribe to live order book updates (`market.orderbook.{symbol}`)
+- [ ] On each book update, evaluate fill condition:
+  - BUY limit: fill condition met when `asks[0].price ≤ limit_price`
+  - SELL limit: fill condition met when `bids[0].price ≥ limit_price`
+- [ ] When condition is met: run the same depth-walk fill algorithm as Market orders, but **only consume levels at or better than the limit price**
+  - BUY: consume only ask levels where `ask_price ≤ limit_price`
+  - SELL: consume only bid levels where `bid_price ≥ limit_price`
+- [ ] If the book moves away from the limit price mid-fill: stop consuming, remain `PARTIALLY_FILLED`, resume on the next book update when eligible levels reappear
+- [ ] Fill price for each level = the actual level price (not the limit price); all fills are at or better than limit
+- [ ] Same wallet, fill record, and publish logic as Market handler
 
 #### Order-Service Integration
 - [ ] When `POST /orders` is called:
@@ -368,20 +380,21 @@ xchange-platform/
 #### WebSocket — User Order Updates
 - [ ] market-data-service (or a dedicated user-event service): subscribe to `fills.{user_id}` on Redis
 - [ ] Push fill event to connected frontend client via `WS /ws/user/orders`
-- [ ] Frontend updates order status in real-time without page refresh
+- [ ] Frontend updates order status and wallet balance in real-time without page refresh
 
 #### Stop-Loss Order Handler
-- [ ] On STOP_LOSS order: set status OPEN, monitor price via `market.ticker` subscription
-  - For SELL stop-loss: trigger when `last_price <= stop_price`, then fill as MARKET
-  - For BUY stop-loss (short cover): trigger when `last_price >= stop_price`
-- [ ] Same fill logic as Market order on trigger
+- [ ] On STOP_LOSS order: set status `OPEN`, monitor `market.ticker.{symbol}` subscription
+  - SELL stop-loss: trigger when `last_price <= stop_price`
+  - BUY stop-loss (short cover): trigger when `last_price >= stop_price`
+- [ ] On trigger: convert to MARKET order and apply the full depth-walk fill algorithm
 
 ### Sprint 5 Deliverable Checklist
-- [ ] A student places a Market BUY for BTC/USDT — it fills instantly at current price, wallet balance updates
-- [ ] A student places a Limit BUY below current price — order stays OPEN, fills automatically when price drops
-- [ ] A student places a Stop-Loss — it triggers and fills when price crosses the stop level
+- [ ] A student places a Market BUY for BTC/USDT — it fills level by level through the live ask ladder; average fill price reflects real market depth
+- [ ] A large Market order that exceeds available depth partially fills, waits for the book to refresh, then completes — student sees status update from PENDING → PARTIALLY_FILLED → FILLED in real time
+- [ ] A student places a Limit BUY below current price — order stays OPEN, fills automatically only through eligible ask levels when price comes down
+- [ ] A student places a Stop-Loss — it triggers and fills via depth-walk when price crosses the stop level
 - [ ] A student cancels an open Limit order — locked balance is returned
-- [ ] All fills are visible on the frontend in real-time without page refresh
+- [ ] All fills (including each partial) are visible on the frontend in real-time without page refresh
 
 ---
 
