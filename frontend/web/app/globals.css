@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/* ── XChange platform — dark trading theme ───────────────────────────────── */
+:root {
+  --bg-primary:   #0d0f14;
+  --bg-secondary: #161a23;
+  --bg-card:      #1c2030;
+  --border:       #2a3045;
+  --text-primary: #e2e8f0;
+  --text-muted:   #64748b;
+  --accent-green: #22c55e;
+  --accent-red:   #ef4444;
+  --accent-blue:  #3b82f6;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  margin: 0;
+}
+
+/* Utility classes used across the platform */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.btn-primary {
+  background: var(--accent-blue);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.25rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-primary:hover { opacity: 0.85; }
+
+.btn-buy {
+  background: var(--accent-green);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.25rem;
+  cursor: pointer;
+  font-weight: 600;
+  width: 100%;
+}
+
+.btn-sell {
+  background: var(--accent-red);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.25rem;
+  cursor: pointer;
+  font-weight: 600;
+  width: 100%;
+}
+
+input, select {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.45rem 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 0.5rem 0.75rem; text-align: left; }
+th { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; }
+tr { border-bottom: 1px solid var(--border); }
+tr:last-child { border-bottom: none; }

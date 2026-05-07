@@ -1,11 +1,31 @@
-FROM nginx:1.27-alpine
+# ── Build stage ─────────────────────────────────────────────────────────────
+FROM node:22-alpine AS builder
 
-# Remove default nginx page
-RUN rm -f /usr/share/nginx/html/index.html
+WORKDIR /app
 
-# Copy our placeholder page
-COPY public/ /usr/share/nginx/html/
+COPY package.json package-lock.json* ./
+RUN npm ci --prefer-offline
+
+COPY . .
+
+# Build args are baked into the static bundle at build time
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost
+ARG NEXT_PUBLIC_WS_BASE_URL=ws://localhost/ws
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_WS_BASE_URL=$NEXT_PUBLIC_WS_BASE_URL
+
+RUN npm run build
+
+# ── Production stage ─────────────────────────────────────────────────────────
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 EXPOSE 3000
 
-CMD ["nginx", "-g", "daemon off;", "-p", "/etc/nginx", "-c", "/etc/nginx/nginx.conf"]
+CMD ["node", "server.js"]
