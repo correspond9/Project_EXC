@@ -24,6 +24,50 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import httpx
+
+
+# ── Token-bucket rate limiter ─────────────────────────────────────────────────
+# Target: ≤ 1,200 weight per minute — a conservative 20% of Binance's current
+# 6,000/min hard limit.  Each /api/v3/klines call costs 2 weight.
+# See docs/BINANCE_RATE_LIMITS.md for full details.
+
+class TokenBucket:
+    """
+    Async token-bucket rate limiter.
+
+    capacity : float — maximum tokens the bucket can hold (burst ceiling)
+    rate     : float — tokens added per second
+    """
+
+    def __init__(self, capacity: float, rate: float) -> None:
+        self.capacity = float(capacity)
+        self.rate = float(rate)
+        self._tokens: float = float(capacity)
+        self._last_refill: float = time.monotonic()
+        self._lock = asyncio.Lock()
+
+    async def acquire(self, tokens: float = 1.0) -> None:
+        """Block until `tokens` are available, then consume them."""
+        while True:
+            async with self._lock:
+                now = time.monotonic()
+                elapsed = now - self._last_refill
+                self._tokens = min(
+                    self.capacity, self._tokens + elapsed * self.rate
+                )
+                self._last_refill = now
+
+                if self._tokens >= tokens:
+                    self._tokens -= tokens
+                    return
+
+                deficit = tokens - self._tokens
+                wait = deficit / self.rate
+
+            # Sleep outside the lock so other coroutines are not blocked
+            await asyncio.sleep(wait)
+
+
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -64,14 +108,21 @@ def _days_ago_ms(days: int) -> int:
     return int(dt.timestamp() * 1000)
 
 
+# Weight cost of a single /api/v3/klines request (per Binance docs)
+_KLINES_WEIGHT = 2
+
+
 async def _fetch_klines(
     client: httpx.AsyncClient,
+    limiter: TokenBucket,
     symbol: str,
     interval: str,
     start_ms: int,
     end_ms: int,
 ) -> list:
-    """Fetch one page of klines from Binance REST API."""
+    """Fetch one page of klines from Binance REST API, rate-limited."""
+    await limiter.acquire(tokens=_KLINES_WEIGHT)
+
     resp = await client.get(
         f"{BINANCE_REST_BASE}/api/v3/klines",
         params={
@@ -83,6 +134,21 @@ async def _fetch_klines(
         },
         timeout=30,
     )
+
+    if resp.status_code == 429:
+        retry_after = int(resp.headers.get("Retry-After", 60))
+        print(f"\n  [RATE LIMIT 429] Binance asked us to back off. "
+              f"Sleeping {retry_after}s ...", flush=True)
+        await asyncio.sleep(retry_after)
+        raise RuntimeError("Rate limit 429 — will retry")
+
+    if resp.status_code == 418:
+        retry_after = int(resp.headers.get("Retry-After", 300))
+        print(f"\n  [IP BAN 418] Binance has temporarily banned our IP. "
+              f"Sleeping {retry_after}s ...", flush=True)
+        await asyncio.sleep(retry_after)
+        raise RuntimeError("IP ban 418 — will retry")
+
     resp.raise_for_status()
     return resp.json()
 
@@ -90,6 +156,7 @@ async def _fetch_klines(
 async def backfill_symbol_interval(
     session_factory,
     client: httpx.AsyncClient,
+    limiter: TokenBucket,
     symbol: str,
     interval: str,
 ) -> int:
@@ -104,8 +171,10 @@ async def backfill_symbol_interval(
     current_start = start_ms
     while current_start < end_ms:
         try:
-            raw = await _fetch_klines(client, symbol, interval, current_start, end_ms)
-        except httpx.HTTPStatusError as exc:
+            raw = await _fetch_klines(
+                client, limiter, symbol, interval, current_start, end_ms
+            )
+        except (httpx.HTTPStatusError, RuntimeError) as exc:
             print(f"    ERROR fetching {symbol}/{interval}: {exc}")
             break
 
@@ -139,11 +208,8 @@ async def backfill_symbol_interval(
         last_open_time = int(raw[-1][0])
         current_start = last_open_time + 1
 
-        # Respect Binance rate limits — short pause between pages
-        if len(raw) == LIMIT:
-            await asyncio.sleep(0.2)
-        else:
-            break
+        if len(raw) < LIMIT:
+            break  # No more pages
 
     return total_inserted
 
@@ -174,12 +240,16 @@ async def main() -> None:
         await engine.dispose()
         sys.exit(1)
 
+    # Token bucket: capacity=1200 weight, rate=20 weight/sec → ≤1,200 weight/min
+    # See docs/BINANCE_RATE_LIMITS.md for rationale.
+    limiter = TokenBucket(capacity=1200, rate=20)
+
     async with httpx.AsyncClient() as client:
         for symbol in SYMBOLS:
             for interval in INTERVALS:
                 print(f"  Backfilling {symbol} / {interval} ...", end=" ", flush=True)
                 count = await backfill_symbol_interval(
-                    session_factory, client, symbol, interval
+                    session_factory, client, limiter, symbol, interval
                 )
                 print(f"{count} rows inserted.")
 

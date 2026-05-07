@@ -63,6 +63,7 @@ class Order(Base):
     )
     quantity: Mapped[Decimal] = mapped_column(Numeric(28, 8), nullable=False)
     price: Mapped[Decimal | None] = mapped_column(Numeric(28, 8), nullable=True)
+    stop_price: Mapped[Decimal | None] = mapped_column(Numeric(28, 8), nullable=True)
     status: Mapped[OrderStatus] = mapped_column(
         SAEnum(OrderStatus, name="order_status"),
         nullable=False,

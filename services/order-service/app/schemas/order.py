@@ -28,6 +28,7 @@ class OrderResponse(BaseModel):
     market_type: MarketType
     quantity: Decimal
     price: Optional[Decimal]
+    stop_price: Optional[Decimal]
     status: OrderStatus
     execution_mode: ExecutionMode
     external_order_id: Optional[str]
@@ -45,10 +46,13 @@ class PlaceOrderRequest(BaseModel):
     market_type: MarketType = MarketType.SPOT
     quantity: Decimal = Field(gt=0)
     price: Optional[Decimal] = Field(default=None, gt=0)
+    stop_price: Optional[Decimal] = Field(default=None, gt=0)
 
     def validate_price(self) -> None:
         if self.order_type == OrderType.LIMIT and self.price is None:
             raise ValueError("price is required for LIMIT orders")
+        if self.order_type in (OrderType.STOP_LOSS, OrderType.TAKE_PROFIT) and self.stop_price is None:
+            raise ValueError("stop_price is required for STOP_LOSS / TAKE_PROFIT orders")
 
 
 class PlaceOrderResponse(BaseModel):
