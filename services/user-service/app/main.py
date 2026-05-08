@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from .redis_client import close_redis_pool, get_redis_pool
-from .routers import auth, users
+from .routers import auth, kyc, partner, users
 
 
 @asynccontextmanager
@@ -26,6 +26,8 @@ app = FastAPI(
 )
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(kyc.router, prefix="/api")
+app.include_router(partner.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 
 

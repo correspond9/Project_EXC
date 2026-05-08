@@ -8,7 +8,9 @@ from sqlalchemy import (
     DateTime,
     Enum as SAEnum,
     ForeignKey,
+    Numeric,
     String,
+    Text,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -24,6 +26,9 @@ class UserRole(str, enum.Enum):
     TRADER = "TRADER"
     ADMIN = "ADMIN"
     SUPER_ADMIN = "SUPER_ADMIN"
+    PARTNER = "PARTNER"
+    POWER_USER = "POWER_USER"
+    SUPER_USER = "SUPER_USER"
 
 
 class TradingMode(str, enum.Enum):
@@ -35,6 +40,19 @@ class KYCStatus(str, enum.Enum):
     PENDING = "PENDING"
     SUBMITTED = "SUBMITTED"
     APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class KYCDocumentType(str, enum.Enum):
+    PASSPORT = "PASSPORT"
+    EMIRATES_ID = "EMIRATES_ID"
+    SELFIE = "SELFIE"
+    PROOF_OF_ADDRESS = "PROOF_OF_ADDRESS"
+
+
+class KYCDocumentStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    VERIFIED = "VERIFIED"
     REJECTED = "REJECTED"
 
 
@@ -75,6 +93,13 @@ class User(Base):
         default=LanguagePreference.EN,
         server_default=LanguagePreference.EN.value,
     )
+    # Partner referral — set to the PARTNER user who referred this account
+    referred_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     is_active = Column(Boolean, nullable=False, default=True, server_default="true")
     created_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -98,6 +123,33 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="noload",
+    )
+    kyc_documents = relationship(
+        "KYCDocument",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="noload",
+    )
+    # Users referred by this partner account
+    referred_users = relationship(
+        "User",
+        primaryjoin="User.referred_by == User.id",
+        foreign_keys="User.referred_by",
+        lazy="noload",
+    )
+    partner_permissions = relationship(
+        "PartnerPermission",
+        back_populates="partner",
+        cascade="all, delete-orphan",
+        lazy="noload",
+        foreign_keys="PartnerPermission.partner_user_id",
+    )
+    commissions_earned = relationship(
+        "CommissionLedger",
+        back_populates="partner",
+        cascade="all, delete-orphan",
+        lazy="noload",
+        foreign_keys="CommissionLedger.partner_user_id",
     )
 
 
@@ -149,3 +201,104 @@ class AuditLog(Base):
     )
 
     user = relationship("User", back_populates="audit_logs")
+
+
+class KYCDocument(Base):
+    __tablename__ = "kyc_documents"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    document_type = Column(
+        SAEnum(KYCDocumentType, name="kyc_document_type"),
+        nullable=False,
+    )
+    file_reference = Column(String(500), nullable=False)
+    verification_status = Column(
+        SAEnum(KYCDocumentStatus, name="kyc_document_status"),
+        nullable=False,
+        default=KYCDocumentStatus.PENDING,
+        server_default=KYCDocumentStatus.PENDING.value,
+    )
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    user = relationship("User", back_populates="kyc_documents")
+
+
+class PartnerPermission(Base):
+    """
+    Stores discretionary permissions granted by Super Admin to a PARTNER account.
+    Example permission: 'VIEW_REFERRED_TRADE_HISTORY'
+    """
+    __tablename__ = "partner_permissions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    partner_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    permission = Column(String(100), nullable=False)
+    granted_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    granted_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    partner = relationship(
+        "User",
+        back_populates="partner_permissions",
+        foreign_keys=[partner_user_id],
+    )
+
+
+class CommissionLedger(Base):
+    """
+    Immutable log of brokerage income share entries for PARTNER accounts.
+    Entries are created by admin/worker when a referred user generates revenue.
+    """
+    __tablename__ = "commission_ledger"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    partner_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    referred_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # Reference to the trade/fill that generated this commission (external to user-service)
+    trade_reference = Column(String(255), nullable=True)
+    commission_amount = Column(Numeric(28, 8), nullable=False)
+    commission_rate = Column(Numeric(10, 6), nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+    )
+
+    partner = relationship(
+        "User",
+        back_populates="commissions_earned",
+        foreign_keys=[partner_user_id],
+    )

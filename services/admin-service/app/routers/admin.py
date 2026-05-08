@@ -8,7 +8,7 @@ from sqlalchemy import func, select, text, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..dependencies.auth import require_admin
+from ..dependencies.auth import AdminContext, require_admin, require_admin_context
 from ..models.position_limit import UserPositionLimit
 from ..models.user import User
 from ..schemas.admin import (
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/admin/users", tags=["Admin — Users"])
 
 @router.get("", response_model=UserListResponse)
 async def list_users(
-    _admin_id: Annotated[uuid.UUID, Depends(require_admin)],
+    ctx: Annotated[AdminContext, Depends(require_admin_context)],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, le=100),
@@ -31,10 +31,15 @@ async def list_users(
     role: str | None = Query(default=None, description="Filter by role"),
     is_active: bool | None = Query(default=None, description="Filter by active status"),
 ):
-    """Return a paginated, searchable, filterable list of all users."""
+    """Return a paginated, searchable, filterable list of all users.
+    SUPER_USER accounts are hidden from all callers except SUPER_ADMIN.
+    """
     offset = (page - 1) * per_page
 
     filters = []
+    # SUPER_USER accounts are invisible to everyone except SUPER_ADMIN
+    if not ctx.is_super_admin:
+        filters.append(User.role != "SUPER_USER")
     if search:
         filters.append(User.email.ilike(f"%{search}%"))
     if role:
@@ -67,13 +72,16 @@ async def list_users(
 @router.get("/{user_id}", response_model=UserSummary)
 async def get_user(
     user_id: uuid.UUID,
-    _admin_id: Annotated[uuid.UUID, Depends(require_admin)],
+    ctx: Annotated[AdminContext, Depends(require_admin_context)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Return a single user's detail."""
+    """Return a single user's detail. SUPER_USER accounts are only visible to SUPER_ADMIN."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Block non-super-admins from resolving a SUPER_USER account
+    if str(user.role) == "SUPER_USER" and not ctx.is_super_admin:
         raise HTTPException(status_code=404, detail="User not found")
     return UserSummary.model_validate(user)
 
@@ -82,13 +90,13 @@ async def get_user(
 async def update_trading_mode(
     user_id: uuid.UUID,
     body: UpdateTradingModeRequest,
-    _admin_id: Annotated[uuid.UUID, Depends(require_admin)],
+    ctx: Annotated[AdminContext, Depends(require_admin_context)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Switch a user's trading mode between SIMULATION and LIVE."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if user is None:
+    if user is None or (str(user.role) == "SUPER_USER" and not ctx.is_super_admin):
         raise HTTPException(status_code=404, detail="User not found")
 
     user.trading_mode = body.trading_mode
@@ -101,13 +109,13 @@ async def update_trading_mode(
 async def update_user_status(
     user_id: uuid.UUID,
     body: UpdateUserStatusRequest,
-    _admin_id: Annotated[uuid.UUID, Depends(require_admin)],
+    ctx: Annotated[AdminContext, Depends(require_admin_context)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Activate or suspend a user account."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    if user is None:
+    if user is None or (str(user.role) == "SUPER_USER" and not ctx.is_super_admin):
         raise HTTPException(status_code=404, detail="User not found")
 
     user.is_active = body.is_active
@@ -126,16 +134,17 @@ class SetPositionLimitRequest(BaseModel):
 async def set_position_limit(
     user_id: uuid.UUID,
     body: SetPositionLimitRequest,
-    _admin_id: Annotated[uuid.UUID, Depends(require_admin)],
+    ctx: Annotated[AdminContext, Depends(require_admin_context)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Set or update the maximum total open futures position value (USDT) for a user."""
     if body.max_position_value_usdt <= Decimal("0"):
         raise HTTPException(status_code=400, detail="max_position_value_usdt must be > 0")
 
-    # Check user exists
+    # Check user exists and is visible to this caller
     user_result = await db.execute(select(User).where(User.id == user_id))
-    if user_result.scalar_one_or_none() is None:
+    user = user_result.scalar_one_or_none()
+    if user is None or (str(user.role) == "SUPER_USER" and not ctx.is_super_admin):
         raise HTTPException(status_code=404, detail="User not found")
 
     result = await db.execute(

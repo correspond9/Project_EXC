@@ -1,6 +1,6 @@
 # XChange Platform — Phased Execution Roadmap
-**Version:** 1.0  
-**Date:** 07-May-2026  
+**Version:** 1.1  
+**Date:** 08-May-2026  
 **Parent Document:** [MASTER_PLAN.md](./MASTER_PLAN.md)  
 **Architecture Reference:** [ARCHITECTURE.md](./ARCHITECTURE.md)
 
@@ -19,6 +19,25 @@
 - If a task is blocked, note the blocker inline and raise it immediately — do not skip ahead.
 - At the end of each sprint, review the deliverable checklist. Only mark a sprint complete when ALL deliverables are met.
 - Any scope change must be recorded in `MASTER_PLAN.md` first, then reflected here.
+
+---
+
+## Current Execution Status (As of 08-May-2026)
+
+| Item | Status |
+|------|--------|
+| Active branch | `main` |
+| Latest delivery commit | `73bd0b9` |
+| Completed sprints | Sprint 1 to Sprint 12 |
+| Current sprint | Sprint 13 (in progress) |
+
+### Sprint Progress Snapshot
+
+| Sprint | Status |
+|--------|--------|
+| Sprint 1 to Sprint 12 | ✅ Completed |
+| Sprint 13 | 🚧 In Progress |
+| Sprint 14 to Sprint 24 | ⏳ Not Started |
 
 ---
 
@@ -771,18 +790,19 @@ Students can trade simulation Spot, Futures, and Options on web and mobile.
 ### Tasks
 - [ ] Engage UAE legal counsel specialising in VARA (Virtual Assets Regulatory Authority)
 - [ ] Obtain list of VARA requirements for the intended licence type (VASP vs full exchange)
-- [ ] Document all compliance requirements in `docs/COMPLIANCE_REQUIREMENTS.md`
+- [x] Document all compliance requirements in `docs/COMPLIANCE_REQUIREMENTS.md`
 - [ ] Select KYC/AML provider — evaluate: Sumsub, Jumio, Onfido (refer to Open Question #3 in MASTER_PLAN.md)
-- [ ] Design KYC flow: document upload → liveness check → AML screening → admin review → approval
-- [ ] Design compliance data schema: what data must be stored, for how long, in what format
-- [ ] Define VARA report format (transaction reports, suspicious activity reports)
+  - Sprint 13 progress: initial provider comparison drafted in `docs/KYC_AML_PROVIDER_EVALUATION.md`
+- [x] Design KYC flow: document upload → liveness check → AML screening → admin review → approval
+- [x] Design compliance data schema: what data must be stored, for how long, in what format
+- [x] Define VARA report format (transaction reports, suspicious activity reports)
 - [ ] Update `docs/MASTER_PLAN.md` Open Questions #3 and #4 with decisions made
 
 ### Sprint 13 Deliverable Checklist
 - [ ] Legal counsel engaged and first meeting completed
 - [ ] `COMPLIANCE_REQUIREMENTS.md` written and reviewed with legal counsel
 - [ ] KYC/AML provider selected
-- [ ] KYC flow design document complete
+- [x] KYC flow design document complete
 
 ---
 

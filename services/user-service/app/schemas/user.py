@@ -5,7 +5,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
-from ..models.user import KYCStatus, LanguagePreference, TradingMode, UserRole
+from ..models.user import (
+    KYCDocumentStatus,
+    KYCDocumentType,
+    KYCStatus,
+    LanguagePreference,
+    TradingMode,
+    UserRole,
+)
 
 
 # ── Auth Schemas ──────────────────────────────────────────────────────────────
@@ -72,3 +79,73 @@ class UpdateProfileRequest(BaseModel):
     country: Optional[str] = None
     date_of_birth: Optional[date] = None
     language_preference: Optional[LanguagePreference] = None
+
+
+class KYCDocumentSubmitRequest(BaseModel):
+    document_type: KYCDocumentType
+    file_reference: str
+
+
+class KYCSubmitRequest(BaseModel):
+    documents: list[KYCDocumentSubmitRequest]
+
+    @field_validator("documents")
+    @classmethod
+    def require_documents(cls, v: list[KYCDocumentSubmitRequest]) -> list[KYCDocumentSubmitRequest]:
+        if len(v) == 0:
+            raise ValueError("At least one KYC document is required.")
+        return v
+
+
+class KYCStatusResponse(BaseModel):
+    kyc_status: KYCStatus
+
+
+class KYCDocumentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    document_type: KYCDocumentType
+    file_reference: str
+    verification_status: KYCDocumentStatus
+    created_at: datetime
+
+
+class KYCSubmissionResponse(BaseModel):
+    message: str
+    kyc_status: KYCStatus
+    submitted_documents: int
+
+
+# ── Partner Schemas ───────────────────────────────────────────────────────────
+
+class ReferredUserSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    email: str
+    role: UserRole
+    trading_mode: TradingMode
+    kyc_status: KYCStatus
+    is_active: bool
+    created_at: datetime
+
+
+class CommissionEntry(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    referred_user_id: UUID
+    trade_reference: Optional[str] = None
+    commission_amount: float
+    commission_rate: float
+    description: Optional[str] = None
+    created_at: datetime
+
+
+class PartnerPermissionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    permission: str
+    granted_at: datetime

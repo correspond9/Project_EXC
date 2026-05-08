@@ -65,6 +65,7 @@ async def get_leaderboard(
             WHERE currency = 'USDT'
         ) wallet ON wallet.user_id = u.id
         WHERE u.role = 'STUDENT'
+          AND u.role != 'SUPER_USER'
         ORDER BY realised_pnl DESC
         LIMIT :limit
     """)

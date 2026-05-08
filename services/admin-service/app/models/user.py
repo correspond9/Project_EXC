@@ -5,6 +5,7 @@ These models exist only so admin-service can query them via SQLAlchemy.
 """
 import enum
 import uuid
+from typing import Optional
 
 from sqlalchemy import Boolean, Enum as SAEnum, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -18,6 +19,9 @@ class UserRole(str, enum.Enum):
     TRADER = "TRADER"
     ADMIN = "ADMIN"
     SUPER_ADMIN = "SUPER_ADMIN"
+    PARTNER = "PARTNER"
+    POWER_USER = "POWER_USER"
+    SUPER_USER = "SUPER_USER"
 
 
 class TradingMode(str, enum.Enum):
@@ -49,3 +53,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean)
     created_at: Mapped[str] = mapped_column(server_default=func.now())
     updated_at: Mapped[str] = mapped_column(server_default=func.now())
+    # Partner referral link — nullable UUID of the referring PARTNER user
+    referred_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
