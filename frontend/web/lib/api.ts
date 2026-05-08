@@ -5,8 +5,11 @@
 import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
 
+const fallbackBaseUrl =
+  typeof window !== "undefined" ? window.location.origin : "http://localhost";
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost",
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || fallbackBaseUrl,
   withCredentials: true, // send HttpOnly refresh cookie on auth endpoints
 });
 
