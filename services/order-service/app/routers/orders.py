@@ -12,7 +12,7 @@ from ..database import get_db
 from ..dependencies.auth import get_current_user_id
 from ..models.futures import ExecutionMode as FuturesExecutionMode
 from ..models.futures import MarginAccount, Position, PositionStatus, UserPositionLimit
-from ..models.order import ExecutionMode, Order, OrderStatus
+from ..models.order import ExecutionMode, MarketType, Order, OrderStatus
 from ..models.wallet import SimulationWallet
 from ..redis_client import get_redis_pool
 from ..schemas.order import OrderResponse, PlaceOrderRequest, PlaceOrderResponse
@@ -110,6 +110,56 @@ async def place_order(
     symbol_upper = body.symbol.upper()
     redis_sym = symbol_upper.replace("/", "")
 
+    # ── Check user trading mode ────────────────────────────────────────────────
+    _mode_row = await db.execute(
+        sa.text("SELECT trading_mode, kyc_status FROM users WHERE id = :uid"),
+        {"uid": str(user_id)},
+    )
+    _user_info = _mode_row.fetchone()
+    _is_live = (
+        _user_info is not None
+        and _user_info.trading_mode == "LIVE"
+        and _user_info.kyc_status == "APPROVED"
+    )
+
+    if _is_live:
+        # ── LIVE order: skip simulation wallet, route to execution-service ────
+        order = Order(
+            user_id=user_id,
+            symbol=symbol_upper,
+            side=body.side,
+            order_type=body.order_type,
+            market_type=body.market_type,
+            quantity=body.quantity,
+            price=body.price,
+            stop_price=body.stop_price,
+            leverage=body.leverage,
+            reduce_only=body.reduce_only,
+            status=OrderStatus.PENDING,
+            execution_mode=ExecutionMode.LIVE,
+        )
+        db.add(order)
+        await db.commit()
+        await db.refresh(order)
+        _live_msg = {
+            "order_id": str(order.id),
+            "user_id": str(user_id),
+            "symbol": symbol_upper,
+            "side": body.side.value,
+            "order_type": body.order_type.value,
+            "market_type": body.market_type.value,
+            "quantity": str(body.quantity),
+            "price": str(body.price) if body.price else None,
+            "stop_price": str(body.stop_price) if body.stop_price else None,
+            "leverage": body.leverage,
+            "reduce_only": body.reduce_only,
+            "execution_mode": "LIVE",
+        }
+        _redis = get_redis_pool()
+        await _redis.publish("orders.live", json.dumps(_live_msg))
+        return PlaceOrderResponse(order_id=order.id, status=order.status)
+
+    # ── SIMULATION path ────────────────────────────────────────────────────────
     if body.market_type == MarketType.FUTURES:
         # ── FUTURES path ───────────────────────────────────────────────────────
         leverage = body.leverage or 1

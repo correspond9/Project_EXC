@@ -830,7 +830,7 @@ Students can trade simulation Spot, Futures, and Options on web and mobile.
 
 ---
 
-## Sprint 15 — Real Wallet Service & Crypto Deposit Addresses
+## Sprint 15 — Real Wallet Service & Crypto Deposit Addresses ✅
 **Dates:** Month 8, Week 1–2
 
 ### Tasks
@@ -851,7 +851,7 @@ Students can trade simulation Spot, Futures, and Options on web and mobile.
 
 ---
 
-## Sprint 16 — CCXT Binance Live Order Routing (Spot)
+## Sprint 16 — CCXT Binance Live Order Routing (Spot) ✅
 **Dates:** Month 8, Week 3–4
 
 ### Tasks
@@ -875,7 +875,7 @@ Students can trade simulation Spot, Futures, and Options on web and mobile.
 
 ---
 
-## Sprint 17 — Real Execution Engine & Fill Reconciliation
+## Sprint 17 — Real Execution Engine & Fill Reconciliation ✅
 **Dates:** Month 9, Week 1–2
 
 ### Tasks
@@ -894,7 +894,7 @@ Students can trade simulation Spot, Futures, and Options on web and mobile.
 
 ---
 
-## Sprint 18 — Fee Engine, Compliance Exports & Penetration Testing
+## Sprint 18 — Fee Engine, Compliance Exports & Penetration Testing ✅
 **Dates:** Month 9, Week 3–4
 
 ### Tasks
@@ -1052,7 +1052,9 @@ If a task is blocked:
 | 1.0 | 07-May-2026 | Initial roadmap created | Sufyan Ansari |
 | 1.1 | 08-May-2026 | Updated execution status: Sprint 1–12 complete, Sprint 13 active | GitHub Copilot |
 | 1.2 | 08-May-2026 | Clarified RBAC role-expansion stream vs Phase 4 scope; updated delivery commit and Sprint 14 KYC submit status | GitHub Copilot |
+| 1.3 | 08-May-2026 | Phase 4 complete: Sprints 15–18 implemented (real wallets, CCXT live routing, fee engine, compliance exports, pentest/DR docs) | GitHub Copilot |
 
 ---
 
-*End of Roadmap v1.2*
+*End of Roadmap v1.3*
+
