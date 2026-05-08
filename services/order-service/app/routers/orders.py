@@ -9,8 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..dependencies.auth import get_current_user_idfrom ..models.futures import ExecutionMode as FuturesExecutionMode
-from ..models.futures import MarginAccount, Position, PositionStatusfrom ..models.order import ExecutionMode, Order, OrderStatus
+from ..dependencies.auth import get_current_user_id
+from ..models.futures import ExecutionMode as FuturesExecutionMode
+from ..models.futures import MarginAccount, Position, PositionStatus, UserPositionLimit
+from ..models.order import ExecutionMode, Order, OrderStatus
 from ..models.wallet import SimulationWallet
 from ..redis_client import get_redis_pool
 from ..schemas.order import OrderResponse, PlaceOrderRequest, PlaceOrderResponse
@@ -156,6 +158,44 @@ async def place_order(
                     detail=(
                         f"Insufficient margin. Required: {margin_required:.4f} USDT, "
                         f"Available: {available:.4f} USDT"
+                    ),
+                )
+
+            # ── Position size limit check ──────────────────────────────────────
+            _DEFAULT_MAX_NOTIONAL = Decimal("50000")
+            limit_result = await db.execute(
+                sa.select(UserPositionLimit).where(
+                    UserPositionLimit.user_id == user_id
+                )
+            )
+            pos_limit_row = limit_result.scalar_one_or_none()
+            max_notional = (
+                Decimal(str(pos_limit_row.max_position_value_usdt))
+                if pos_limit_row
+                else _DEFAULT_MAX_NOTIONAL
+            )
+            # Sum existing open position notional values
+            open_pos_result = await db.execute(
+                sa.select(Position).where(
+                    Position.user_id == user_id,
+                    Position.status == PositionStatus.OPEN,
+                    Position.execution_mode == FuturesExecutionMode.SIMULATION,
+                )
+            )
+            open_positions = open_pos_result.scalars().all()
+            existing_notional = sum(
+                Decimal(str(p.quantity)) * Decimal(str(p.entry_price))
+                for p in open_positions
+            )
+            new_notional = Decimal(str(body.quantity)) * ref_price
+            if existing_notional + new_notional > max_notional:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Position size limit exceeded. Your maximum total open position "
+                        f"value is {max_notional:,.2f} USDT. "
+                        f"Current: {existing_notional:,.2f} USDT, "
+                        f"New order: {new_notional:,.2f} USDT."
                     ),
                 )
 

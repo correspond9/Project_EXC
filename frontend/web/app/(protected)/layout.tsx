@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import NotificationBell from "@/components/NotificationBell";
 
 /**
  * Layout for all protected pages (dashboard, portfolio, history, admin).
@@ -87,6 +88,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         ))}
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{userEmail}</span>
+        <NotificationBell />
         <button
           onClick={handleLogout}
           style={{

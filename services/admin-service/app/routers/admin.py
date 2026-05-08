@@ -1,12 +1,15 @@
 import uuid
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from pydantic import BaseModel, condecimal
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..dependencies.auth import require_admin
+from ..models.position_limit import UserPositionLimit
 from ..models.user import User
 from ..schemas.admin import (
     UpdateTradingModeRequest,
@@ -94,3 +97,47 @@ async def update_user_status(
     await db.commit()
     await db.refresh(user)
     return UserSummary.model_validate(user)
+
+
+# ── Position limits ────────────────────────────────────────────────────────────
+
+class SetPositionLimitRequest(BaseModel):
+    max_position_value_usdt: Decimal
+
+
+@router.put("/{user_id}/position-limit", status_code=status.HTTP_200_OK)
+async def set_position_limit(
+    user_id: uuid.UUID,
+    body: SetPositionLimitRequest,
+    _admin_id: Annotated[uuid.UUID, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Set or update the maximum total open futures position value (USDT) for a user."""
+    if body.max_position_value_usdt <= Decimal("0"):
+        raise HTTPException(status_code=400, detail="max_position_value_usdt must be > 0")
+
+    # Check user exists
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    if user_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    result = await db.execute(
+        select(UserPositionLimit).where(UserPositionLimit.user_id == user_id)
+    )
+    limit_row = result.scalar_one_or_none()
+
+    if limit_row is None:
+        limit_row = UserPositionLimit(
+            user_id=user_id,
+            max_position_value_usdt=body.max_position_value_usdt,
+        )
+        db.add(limit_row)
+    else:
+        limit_row.max_position_value_usdt = body.max_position_value_usdt
+        limit_row.updated_at = text("now()")
+
+    await db.commit()
+    return {
+        "user_id": str(user_id),
+        "max_position_value_usdt": str(body.max_position_value_usdt),
+    }

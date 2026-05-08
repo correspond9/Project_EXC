@@ -80,3 +80,16 @@ class Position(Base):
     )
     created_at: Mapped[str] = mapped_column(server_default=func.now())
     closed_at: Mapped[str | None] = mapped_column(nullable=True)
+
+
+class UserPositionLimit(Base):
+    __tablename__ = "user_position_limits"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, unique=True)
+    max_position_value_usdt: Mapped[Decimal] = mapped_column(
+        Numeric(28, 8), nullable=False, server_default="50000"
+    )
+    updated_at: Mapped[str | None] = mapped_column(nullable=True)
