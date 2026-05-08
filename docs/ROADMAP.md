@@ -35,7 +35,7 @@
 | Phase 2 | Sprint 7 | Month 4, Week 1–2 | Futures simulation — long/short, leverage, margin |
 | Phase 2 | Sprint 8 | Month 4, Week 3–4 | Risk service, liquidation engine, notifications |
 | Phase 3 | Sprint 9 | Month 5, Week 1–2 | Options simulation, price alerts, email notifications |
-| Phase 3 | Sprint 10 | Month 5, Week 3–4 | Arabic language, RTL UI, admin language toggle |
+| Phase 3 | Sprint 10 | Month 5, Week 3–4 | UI polish, accessibility, performance optimisation |
 | Phase 3 | Sprint 11 | Month 6, Week 1–2 | Admin panel completion, student dashboard |
 | Phase 3 | Sprint 12 | Month 6, Week 3–4 | Mobile app (React Native), load testing, security audit |
 | Phase 4 | Sprint 13 | Month 7, Week 1–2 | VARA compliance review, KYC/AML design |
@@ -259,7 +259,7 @@ xchange-platform/
 
 #### Web Frontend — Project Setup
 - [ ] Create Next.js + TypeScript project inside `frontend/web/`
-- [ ] Install: shadcn/ui, Zustand, i18next, TradingView Lightweight Charts, axios
+- [ ] Install: shadcn/ui, Zustand, TradingView Lightweight Charts, axios
 - [ ] Configure Nginx to serve the Next.js app
 - [ ] Environment variables: `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_WS_BASE_URL`
 - [ ] Routing structure:
@@ -616,47 +616,41 @@ xchange-platform/
 
 ---
 
-## Sprint 10 — Arabic Language, RTL UI & Admin Language Toggle
+## Sprint 10 — UI Polish, Accessibility & Performance
 **Dates:** Month 5, Week 3–4  
-**Depends on:** Sprint 4 (frontend base), Sprint 9 (all notification text in place)
+**Depends on:** Sprints 1–9 (all features built)
 
 ### Tasks
 
-#### Internationalisation Framework
-- [ ] Install and configure `i18next` + `react-i18next` + `next-i18next`
-- [ ] Create translation files:
-  - `public/locales/en/common.json` — all English strings
-  - `public/locales/ar/common.json` — all Arabic translations
-- [ ] All user-facing text in the application must use translation keys — no hardcoded English strings
-- [ ] Language detection: use user's `language_preference` from their profile (EN / AR)
+#### UI Consistency & Polish
+- [ ] Audit all pages for visual consistency — spacing, typography, colour tokens
+- [ ] Standardise loading states (skeleton loaders) across all data tables and charts
+- [ ] Standardise empty states (no data messages) across all pages
+- [ ] Error boundary components on all major page sections
+- [ ] Responsive layout audit — test on 1280px, 1440px, 1920px widths
 
-#### RTL Layout Support
-- [ ] Configure Next.js `dir` attribute: set `dir="rtl"` on `<html>` when language is Arabic
-- [ ] shadcn/ui and Tailwind CSS: verify all layout components render correctly in RTL
-- [ ] TradingView chart: confirm it is language-agnostic (chart labels remain in English — acceptable)
-- [ ] Order book: verify numbers and columns display correctly in RTL context
-- [ ] Test every page in Arabic RTL — fix any layout breakages
+#### Accessibility
+- [ ] All interactive elements have `aria-label` or visible text label
+- [ ] Keyboard navigation works for all forms, modals, and dropdowns
+- [ ] Colour contrast passes WCAG AA for all text on background combinations
+- [ ] Focus ring visible on all focusable elements
 
-#### Admin Language Toggle
-- [ ] Database: add `platform_language` to `platform_settings` table — values: EN, AR, BOTH
-- [ ] Admin panel: language settings page with three options
-  - English Only: all users see English regardless of their preference
-  - Arabic Only: all users see Arabic regardless of their preference
-  - Both (Default): each user sees their own preference (EN or AR)
-- [ ] Frontend reads platform language setting on load — overrides user preference if Admin has forced a language
-- [ ] Admin panel itself: bilingual (admin can switch between EN and AR in their own session)
+#### Frontend Performance
+- [ ] Lighthouse audit on dashboard, portfolio, and history pages — target score ≥ 85
+- [ ] Code-split heavy components (charts, order book) using dynamic imports
+- [ ] WebSocket reconnection logic hardened — exponential back-off on all WS connections
+- [ ] API response caching for market data endpoints (SWR or React Query)
 
-#### Arabic Translations
-- [ ] Translate all strings in `en/common.json` to Arabic for `ar/common.json`
-  - This includes: navigation labels, button text, form labels, error messages, notification text, table headers
-- [ ] Verify numeric formatting: Arabic locale uses Eastern Arabic numerals — keep Western numerals for financial data (standard practice in financial applications in UAE)
-- [ ] Date format: DD-MMM-YYYY in both languages; month name in Arabic for AR locale
+#### Error Handling Hardening
+- [ ] All API errors surface a user-readable toast/message — no silent failures
+- [ ] Session expiry handled gracefully — user redirected to login with message
+- [ ] Network offline state detected and communicated to user
 
 ### Sprint 10 Deliverable Checklist
-- [ ] Switching language preference to Arabic renders the entire platform in Arabic with correct RTL layout
-- [ ] No layout breakage in RTL mode — all tables, forms, modals, and charts display correctly
-- [ ] Admin can force the platform to English-only or Arabic-only from the admin panel
-- [ ] All notification emails are also sent in the user's language
+- [ ] All pages pass visual consistency audit
+- [ ] Lighthouse score ≥ 85 on key pages
+- [ ] Keyboard navigation works end-to-end
+- [ ] All error and empty states handled visibly
 
 ---
 
@@ -715,19 +709,18 @@ xchange-platform/
 
 #### Mobile App (React Native)
 - [ ] Create React Native project inside `mobile/`
-- [ ] Install: React Navigation, React Native WebSocket, Zustand, i18next, React Native Chart Kit
+- [ ] Install: React Navigation, React Native WebSocket, Zustand, React Native Chart Kit
 - [ ] Core screens:
   - Login / Register
   - Dashboard: live price chart, order book, order entry form
   - Portfolio: holdings, P&L summary
   - Trade History
   - Notifications list
-  - Profile / settings (language toggle)
+  - Profile / settings
 - [ ] Shared API layer: extract all API calls into a shared `api/` module reused by both web and mobile
 - [ ] WebSocket connections: live prices, order updates, notifications — same as web
 - [ ] Push notifications: integrate Firebase Cloud Messaging (FCM) for iOS + Android
 - [ ] Build: generate APK (Android) and IPA (iOS) — internal distribution only (TestFlight + internal APK)
-- [ ] Arabic RTL support on mobile: `I18nManager.forceRTL(true)` for AR locale
 
 #### Load Testing
 - [ ] Install k6 or Locust for load testing

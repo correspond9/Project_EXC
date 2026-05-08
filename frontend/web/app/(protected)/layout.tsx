@@ -6,6 +6,7 @@ import Link from "next/link";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import NotificationBell from "@/components/NotificationBell";
+import { ToastProvider } from "@/components/Toast";
 
 /**
  * Layout for all protected pages (dashboard, portfolio, history, admin).
@@ -30,9 +31,24 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         setReady(true);
       })
       .catch(() => {
-        router.replace("/login");
+        router.replace("/login?reason=session_expired");
       });
   }, []);
+
+  // Intercept 401 responses globally → redirect to login (session expired)
+  useEffect(() => {
+    const interceptorId = api.interceptors.response.use(
+      (res) => res,
+      (err) => {
+        if (err?.response?.status === 401 && ready) {
+          clearAuth();
+          router.replace("/login?reason=session_expired");
+        }
+        return Promise.reject(err);
+      }
+    );
+    return () => api.interceptors.response.eject(interceptorId);
+  }, [ready]);
 
   async function handleLogout() {
     try { await api.post("/api/auth/logout"); } catch (_) {}
@@ -91,6 +107,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
         <NotificationBell />
         <button
           onClick={handleLogout}
+          aria-label="Log out of your account"
           style={{
             background: "transparent",
             border: "1px solid var(--border)",
@@ -106,7 +123,9 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
       </nav>
 
       {/* Page content */}
-      <main style={{ flex: 1, padding: "1.5rem" }}>{children}</main>
+      <ToastProvider>
+        <main style={{ flex: 1, padding: "1.5rem" }} id="main-content">{children}</main>
+      </ToastProvider>
     </div>
   );
 }

@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, condecimal
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -27,15 +27,32 @@ async def list_users(
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, le=100),
+    search: str | None = Query(default=None, description="Search by email (partial match)"),
+    role: str | None = Query(default=None, description="Filter by role"),
+    is_active: bool | None = Query(default=None, description="Filter by active status"),
 ):
-    """Return a paginated list of all users."""
+    """Return a paginated, searchable, filterable list of all users."""
     offset = (page - 1) * per_page
 
-    count_result = await db.execute(select(func.count()).select_from(User))
+    filters = []
+    if search:
+        filters.append(User.email.ilike(f"%{search}%"))
+    if role:
+        filters.append(User.role == role.upper())
+    if is_active is not None:
+        filters.append(User.is_active == is_active)
+
+    base_query = select(User)
+    if filters:
+        base_query = base_query.where(*filters)
+
+    count_result = await db.execute(
+        select(func.count()).select_from(base_query.subquery())
+    )
     total = count_result.scalar_one()
 
     result = await db.execute(
-        select(User).order_by(User.created_at.desc()).offset(offset).limit(per_page)
+        base_query.order_by(User.created_at.desc()).offset(offset).limit(per_page)
     )
     users = result.scalars().all()
 

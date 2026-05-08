@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from .redis_client import close_redis_pool, get_redis_pool
-from .routers import notifications, ws
+from .routers import alerts, notifications, ws
 from .services.event_listener import EventListener
 
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +30,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="XChange Notification Service", lifespan=lifespan)
 
 app.include_router(notifications.router)
+app.include_router(alerts.router)
 app.include_router(ws.router)
 
 

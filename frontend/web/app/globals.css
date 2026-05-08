@@ -82,3 +82,52 @@ th, td { padding: 0.5rem 0.75rem; text-align: left; }
 th { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; }
 tr { border-bottom: 1px solid var(--border); }
 tr:last-child { border-bottom: none; }
+
+/* ── Sprint 10 — Accessibility & animations ──────────────────────────────── */
+
+/* Skip-to-main link for keyboard navigation */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent-blue);
+  color: #fff;
+  padding: 8px 16px;
+  z-index: 10000;
+  border-radius: 0 0 4px 0;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.skip-link:focus { top: 0; }
+
+/* Focus ring for keyboard users */
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+/* Toast slide-in animation */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* Pulse animation override (Tailwind animate-pulse) */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.animate-pulse { animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+/* Tab focus styling for nav links */
+nav a:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Ensure buttons have a minimum tap target size */
+button {
+  min-height: 36px;
+}
+

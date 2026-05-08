@@ -114,7 +114,7 @@ The same account can hold both wallets — the active mode determines which wall
 - User management (create, suspend, promote, mode switch)
 - Market configuration (enable/disable trading pairs, set limits)
 - Fee configuration
-- Platform language toggle (English / Arabic / Both — system-wide setting)
+- Platform settings page (fee rates, trading pair controls, emergency pause)
 - Student performance dashboard (for academy use)
 - Simulation wallet top-up (assign virtual funds to students)
 - System health dashboard (uptime, API status, DB status)
@@ -124,12 +124,7 @@ The same account can hold both wallets — the active mode determines which wall
 - Email notifications
 - Push notifications (mobile)
 
-### 5.8 Platform Language
-- English + Arabic
-- Admin-controlled: can be English only, Arabic only, or bilingual simultaneously
-- Full RTL support for Arabic UI
-
-### 5.9 Platform Access
+### 5.8 Platform Access
 - Web application (browser, desktop + mobile-responsive)
 - Native mobile apps: iOS and Android (React Native)
 
@@ -155,7 +150,7 @@ Chosen based on: solo developer, existing VPS (Coolify), maintainability, and op
 | Framework | **React + TypeScript** (Next.js) |
 | Charts | **TradingView Lightweight Charts** (open source, free) |
 | State Management | **Zustand** (simple, lightweight) |
-| Internationalisation | **i18next** (English + Arabic, RTL support) |
+| Internationalisation | Not required — English only |
 | UI Component Library | **shadcn/ui** (modern, accessible, customisable) |
 
 ### 6.3 Mobile
@@ -300,8 +295,6 @@ These are logical groupings (detailed schema per service to be done in Phase 1 d
 - [ ] Options simulation (Call/Put, European style)
 - [ ] Price alerts (user-configurable)
 - [ ] Full email notification system
-- [ ] Arabic language support + RTL UI
-- [ ] Admin language toggle (English / Arabic / Both)
 - [ ] Admin panel — full user management, mode switch capability
 - [ ] Admin panel — simulation wallet top-up per student
 - [ ] Mobile app — iOS and Android (React Native)
