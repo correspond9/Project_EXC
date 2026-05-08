@@ -89,7 +89,8 @@ class User(Base):
         server_default=KYCStatus.PENDING.value,
     )
     language_preference = Column(
-        SAEnum(LanguagePreference, name="language_preference", create_type=False),
+        SAEnum(LanguagePreference, name="language_preference", create_type=False,
+               values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default=LanguagePreference.EN,
         server_default=LanguagePreference.EN.value,

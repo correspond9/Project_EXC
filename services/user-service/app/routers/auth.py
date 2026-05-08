@@ -165,7 +165,7 @@ async def login(
         ip_address=_client_ip(request),
     )
 
-    return TokenResponse(access_token=access_token)
+    return TokenResponse(access_token=access_token, email=user.email, role=user.role.value)
 
 
 # ── POST /api/auth/refresh ────────────────────────────────────────────────────

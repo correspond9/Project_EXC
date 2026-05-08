@@ -35,7 +35,7 @@ DATABASE_URL = os.getenv(
     "postgresql+asyncpg://xchange:xchange@postgres:5432/xchange_db",
 )
 
-ADMIN_EMAIL    = os.getenv("ADMIN_EMAIL",    "admin@xchange.local")
+ADMIN_EMAIL    = os.getenv("ADMIN_EMAIL",    "admin@xchange.dev")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "ChangeMe123!")
 
 # ── Main ──────────────────────────────────────────────────────────────────────
