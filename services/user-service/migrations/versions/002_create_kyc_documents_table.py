@@ -17,13 +17,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute(
-        "CREATE TYPE kyc_document_type AS ENUM ('PASSPORT', 'EMIRATES_ID', 'SELFIE', 'PROOF_OF_ADDRESS')"
-    )
-    op.execute(
-        "CREATE TYPE kyc_document_status AS ENUM ('PENDING', 'VERIFIED', 'REJECTED')"
-    )
-
+    # ENUM types (kyc_document_type, kyc_document_status) are created
+    # automatically by SQLAlchemy via _on_table_create.
     op.create_table(
         "kyc_documents",
         sa.Column(
@@ -46,7 +41,6 @@ def upgrade() -> None:
                 "SELFIE",
                 "PROOF_OF_ADDRESS",
                 name="kyc_document_type",
-                create_type=False,
             ),
             nullable=False,
         ),
@@ -58,7 +52,6 @@ def upgrade() -> None:
                 "VERIFIED",
                 "REJECTED",
                 name="kyc_document_status",
-                create_type=False,
             ),
             nullable=False,
             server_default="PENDING",

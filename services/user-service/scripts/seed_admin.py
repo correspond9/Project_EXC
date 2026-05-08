@@ -24,7 +24,7 @@ import os
 import sys
 import uuid
 
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -38,15 +38,13 @@ DATABASE_URL = os.getenv(
 ADMIN_EMAIL    = os.getenv("ADMIN_EMAIL",    "admin@xchange.local")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "ChangeMe123!")
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 async def seed() -> None:
     engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
     SessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False)
 
-    password_hash = _pwd_context.hash(ADMIN_PASSWORD)
+    password_hash = bcrypt.hashpw(ADMIN_PASSWORD.encode(), bcrypt.gensalt()).decode()
 
     async with SessionLocal() as session:
         # Check if the account already exists

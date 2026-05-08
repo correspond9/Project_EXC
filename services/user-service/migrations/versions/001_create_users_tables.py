@@ -18,17 +18,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # ── Create ENUM types ─────────────────────────────────────────────────────
-    op.execute(
-        "CREATE TYPE user_role AS ENUM ('STUDENT', 'TRADER', 'ADMIN', 'SUPER_ADMIN')"
-    )
-    op.execute("CREATE TYPE trading_mode AS ENUM ('SIMULATION', 'LIVE')")
-    op.execute(
-        "CREATE TYPE kyc_status AS ENUM ('PENDING', 'SUBMITTED', 'APPROVED', 'REJECTED')"
-    )
-    op.execute("CREATE TYPE language_preference AS ENUM ('en', 'ar')")
-
     # ── users ─────────────────────────────────────────────────────────────────
+    # ENUM types (user_role, trading_mode, kyc_status, language_preference) are
+    # created automatically by SQLAlchemy via _on_table_create when the first
+    # table referencing them is created.
     op.create_table(
         "users",
         sa.Column(
@@ -44,14 +37,13 @@ def upgrade() -> None:
             sa.Enum(
                 "STUDENT", "TRADER", "ADMIN", "SUPER_ADMIN",
                 name="user_role",
-                create_type=False,
             ),
             nullable=False,
             server_default="STUDENT",
         ),
         sa.Column(
             "trading_mode",
-            sa.Enum("SIMULATION", "LIVE", name="trading_mode", create_type=False),
+            sa.Enum("SIMULATION", "LIVE", name="trading_mode"),
             nullable=False,
             server_default="SIMULATION",
         ),
@@ -60,14 +52,13 @@ def upgrade() -> None:
             sa.Enum(
                 "PENDING", "SUBMITTED", "APPROVED", "REJECTED",
                 name="kyc_status",
-                create_type=False,
             ),
             nullable=False,
             server_default="PENDING",
         ),
         sa.Column(
             "language_preference",
-            sa.Enum("en", "ar", name="language_preference", create_type=False),
+            sa.Enum("en", "ar", name="language_preference"),
             nullable=False,
             server_default="en",
         ),

@@ -71,25 +71,25 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(
-        SAEnum(UserRole, name="user_role"),
+        SAEnum(UserRole, name="user_role", create_type=False),
         nullable=False,
         default=UserRole.STUDENT,
         server_default=UserRole.STUDENT.value,
     )
     trading_mode = Column(
-        SAEnum(TradingMode, name="trading_mode"),
+        SAEnum(TradingMode, name="trading_mode", create_type=False),
         nullable=False,
         default=TradingMode.SIMULATION,
         server_default=TradingMode.SIMULATION.value,
     )
     kyc_status = Column(
-        SAEnum(KYCStatus, name="kyc_status"),
+        SAEnum(KYCStatus, name="kyc_status", create_type=False),
         nullable=False,
         default=KYCStatus.PENDING,
         server_default=KYCStatus.PENDING.value,
     )
     language_preference = Column(
-        SAEnum(LanguagePreference, name="language_preference"),
+        SAEnum(LanguagePreference, name="language_preference", create_type=False),
         nullable=False,
         default=LanguagePreference.EN,
         server_default=LanguagePreference.EN.value,
@@ -218,12 +218,12 @@ class KYCDocument(Base):
         index=True,
     )
     document_type = Column(
-        SAEnum(KYCDocumentType, name="kyc_document_type"),
+        SAEnum(KYCDocumentType, name="kyc_document_type", create_type=False),
         nullable=False,
     )
     file_reference = Column(String(500), nullable=False)
     verification_status = Column(
-        SAEnum(KYCDocumentStatus, name="kyc_document_status"),
+        SAEnum(KYCDocumentStatus, name="kyc_document_status", create_type=False),
         nullable=False,
         default=KYCDocumentStatus.PENDING,
         server_default=KYCDocumentStatus.PENDING.value,
