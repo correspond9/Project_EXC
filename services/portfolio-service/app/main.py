@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from .redis_client import close_redis_pool
 from .routers.history import router as history_router
 from .routers.portfolio import router as portfolio_router
+from .routers.positions import router as positions_router
 from .routers.ws import router as ws_router
 from .services.fill_listener import run_fill_listener
 from .services.pnl_scheduler import start_scheduler, stop_scheduler
@@ -54,6 +55,7 @@ app = FastAPI(
 
 app.include_router(portfolio_router)
 app.include_router(history_router)
+app.include_router(positions_router)
 app.include_router(ws_router)
 
 

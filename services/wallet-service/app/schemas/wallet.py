@@ -37,3 +37,15 @@ class TopUpResponse(BaseModel):
     currency: str
     new_balance: Decimal
     message: str
+
+
+class MarginTopUpRequest(BaseModel):
+    user_id: uuid.UUID
+    amount: Decimal = Field(gt=0, description="USDT amount to add to simulation margin account")
+
+
+class MarginTopUpResponse(BaseModel):
+    user_id: uuid.UUID
+    total_margin_balance: Decimal
+    available_margin: Decimal
+    message: str

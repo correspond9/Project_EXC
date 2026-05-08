@@ -29,6 +29,8 @@ class OrderResponse(BaseModel):
     quantity: Decimal
     price: Optional[Decimal]
     stop_price: Optional[Decimal]
+    leverage: Optional[int]
+    reduce_only: bool
     status: OrderStatus
     execution_mode: ExecutionMode
     external_order_id: Optional[str]
@@ -47,12 +49,16 @@ class PlaceOrderRequest(BaseModel):
     quantity: Decimal = Field(gt=0)
     price: Optional[Decimal] = Field(default=None, gt=0)
     stop_price: Optional[Decimal] = Field(default=None, gt=0)
+    leverage: Optional[int] = Field(default=None, ge=1, le=125)
+    reduce_only: bool = False
 
     def validate_price(self) -> None:
         if self.order_type == OrderType.LIMIT and self.price is None:
             raise ValueError("price is required for LIMIT orders")
         if self.order_type in (OrderType.STOP_LOSS, OrderType.TAKE_PROFIT) and self.stop_price is None:
             raise ValueError("stop_price is required for STOP_LOSS / TAKE_PROFIT orders")
+        if self.market_type == MarketType.FUTURES and self.leverage is None:
+            raise ValueError("leverage is required for FUTURES orders")
 
 
 class PlaceOrderResponse(BaseModel):

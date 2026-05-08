@@ -2,7 +2,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Enum as SAEnum
+from sqlalchemy import Boolean, Enum as SAEnum, Integer
 from sqlalchemy import ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -75,6 +75,8 @@ class Order(Base):
         server_default="SIMULATION",
     )
     external_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    leverage: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reduce_only: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
 
     created_at: Mapped[str] = mapped_column(server_default=func.now())
     updated_at: Mapped[str] = mapped_column(server_default=func.now(), onupdate=func.now())

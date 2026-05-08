@@ -2,7 +2,7 @@
 Redis subscriber for the `orders.simulation` channel.
 
 Receives order messages published by order-service and routes them to the
-correct handler (market / limit / stop-loss).
+correct handler (market / limit / stop-loss / futures).
 """
 import asyncio
 import json
@@ -10,6 +10,7 @@ import logging
 
 import redis.asyncio as aioredis
 
+from ..services.futures_handler import handle_futures_order
 from ..services.limit_handler import LimitOrderHandler
 from ..services.market_handler import handle_market_order
 from ..services.order_book_mirror import OrderBookMirror
@@ -42,17 +43,21 @@ async def run_order_subscriber(
 
         order_type: str = msg.get("order_type", "MARKET").upper()
         exec_mode: str = msg.get("execution_mode", "SIMULATION").upper()
+        market_type: str = msg.get("market_type", "SPOT").upper()
 
         if exec_mode != "SIMULATION":
             continue  # live orders handled elsewhere
 
         log.info(
-            "order_subscriber: received %s %s order %s",
-            order_type, msg.get("side"), msg.get("order_id"),
+            "order_subscriber: received %s %s %s order %s",
+            market_type, order_type, msg.get("side"), msg.get("order_id"),
         )
 
         try:
-            if order_type == "MARKET":
+            if market_type == "FUTURES":
+                asyncio.create_task(handle_futures_order(msg, mirror, redis_client))
+
+            elif order_type == "MARKET":
                 asyncio.create_task(handle_market_order(msg, mirror, redis_client))
 
             elif order_type == "LIMIT":

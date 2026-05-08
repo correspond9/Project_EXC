@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from .config import settings
 from .redis_client import close_redis_pool, get_redis_pool
 from .routers.ws import router as ws_router
+from .services.futures_handler import PositionMonitor
 from .services.limit_handler import LimitOrderHandler
 from .services.order_book_mirror import OrderBookMirror
 from .services.order_subscriber import run_order_subscriber
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
     mirror = OrderBookMirror()
     limit_handler = LimitOrderHandler()
     stop_loss_handler = StopLossHandler()
+    position_monitor = PositionMonitor()
 
     symbols = settings.symbols_list
     log.info("simulation-engine starting, symbols: %s", symbols)
@@ -43,6 +45,7 @@ async def lifespan(app: FastAPI):
     subscriber_task = asyncio.create_task(
         run_order_subscriber(redis_client, mirror, limit_handler, stop_loss_handler)
     )
+    monitor_task = asyncio.create_task(position_monitor.start(redis_client))
 
     # Attach to app state so routers can access them if needed
     app.state.mirror = mirror
@@ -54,7 +57,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     mirror_task.cancel()
     subscriber_task.cancel()
-    for task in (mirror_task, subscriber_task):
+    monitor_task.cancel()
+    for task in (mirror_task, subscriber_task, monitor_task):
         try:
             await task
         except asyncio.CancelledError:

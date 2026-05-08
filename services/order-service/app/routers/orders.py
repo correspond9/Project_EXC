@@ -9,8 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..dependencies.auth import get_current_user_id
-from ..models.order import ExecutionMode, Order, OrderStatus
+from ..dependencies.auth import get_current_user_idfrom ..models.futures import ExecutionMode as FuturesExecutionMode
+from ..models.futures import MarginAccount, Position, PositionStatusfrom ..models.order import ExecutionMode, Order, OrderStatus
 from ..models.wallet import SimulationWallet
 from ..redis_client import get_redis_pool
 from ..schemas.order import OrderResponse, PlaceOrderRequest, PlaceOrderResponse
@@ -21,6 +21,8 @@ router = APIRouter(prefix="/api/orders", tags=["Orders"])
 _FEE_RATE = Decimal("0.001")
 # Slippage buffer added to MARKET order reserve (1%)
 _SLIPPAGE_BUFFER = Decimal("0.01")
+# Maintenance margin rate for liquidation calculation
+_MAINT_MARGIN_RATE = Decimal("0.005")
 
 
 def _parse_currencies(symbol: str) -> tuple[str, str]:
@@ -43,15 +45,45 @@ async def _get_wallet(
     return result.scalar_one_or_none()
 
 
+async def _get_or_create_margin_account(
+    db: AsyncSession, user_id: uuid.UUID
+) -> MarginAccount:
+    result = await db.execute(
+        sa.select(MarginAccount).where(
+            MarginAccount.user_id == user_id,
+            MarginAccount.execution_mode == FuturesExecutionMode.SIMULATION,
+        )
+    )
+    account = result.scalar_one_or_none()
+    if account is None:
+        account = MarginAccount(
+            user_id=user_id,
+            execution_mode=FuturesExecutionMode.SIMULATION,
+            total_margin_balance=Decimal("0"),
+            available_margin=Decimal("0"),
+            used_margin=Decimal("0"),
+        )
+        db.add(account)
+        await db.flush()
+    return account
+
+
 async def _get_last_price(symbol_no_slash: str) -> Decimal | None:
     """Fetch the last trade price for a symbol from Redis ticker cache."""
     redis = get_redis_pool()
-    raw = await redis.get(f"ticker:{symbol_no_slash.upper()}")
-    if raw is None:
+    # Try hash key first (market-data-service stores as hash ticker:{SYM} field "c")
+    raw = await redis.hget(f"ticker:{symbol_no_slash.upper()}", "c")
+    if raw is not None:
+        try:
+            return Decimal(raw.decode() if isinstance(raw, bytes) else raw)
+        except Exception:
+            pass
+    # Fallback: plain JSON key
+    raw2 = await redis.get(f"ticker:{symbol_no_slash.upper()}")
+    if raw2 is None:
         return None
     try:
-        data = json.loads(raw)
-        # Binance mini-ticker: 'c' = last price
+        data = json.loads(raw2)
         return Decimal(str(data.get("c") or data.get("last_price") or "0")) or None
     except Exception:
         return None
@@ -64,9 +96,9 @@ async def place_order(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """
-    Submit a simulation order.
-    Validates wallet balance, locks funds, saves the order as PENDING,
-    then publishes to Redis `orders.simulation` for the simulation engine.
+    Submit a simulation order (Spot or Futures).
+    For SPOT: validates wallet balance, locks funds.
+    For FUTURES: validates margin account, reserves margin.
     """
     try:
         body.validate_price()
@@ -74,49 +106,104 @@ async def place_order(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
     symbol_upper = body.symbol.upper()
-    base_cur, quote_cur = _parse_currencies(symbol_upper)
-    # Redis key uses no-slash format
     redis_sym = symbol_upper.replace("/", "")
 
-    # ── Determine lock amount ──────────────────────────────────────────────────
-    if body.side == body.side.BUY:
-        # BUY: lock quote currency (USDT)
-        lock_currency = quote_cur
-        if body.order_type.value in ("LIMIT", "TAKE_PROFIT"):
-            lock_price = Decimal(str(body.price))
-        elif body.order_type.value in ("STOP_LOSS",):
-            lock_price = Decimal(str(body.stop_price))
+    if body.market_type == MarketType.FUTURES:
+        # ── FUTURES path ───────────────────────────────────────────────────────
+        leverage = body.leverage or 1
+
+        if body.reduce_only:
+            # Closing an existing position — validate it exists
+            pos_result = await db.execute(
+                sa.select(Position).where(
+                    Position.user_id == user_id,
+                    Position.symbol == symbol_upper,
+                    Position.status == PositionStatus.OPEN,
+                    Position.execution_mode == FuturesExecutionMode.SIMULATION,
+                )
+            )
+            position = pos_result.scalar_one_or_none()
+            if position is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No open {symbol_upper} futures position to close.",
+                )
+            close_qty = Decimal(str(body.quantity))
+            if close_qty > Decimal(str(position.quantity)):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Close quantity {close_qty} exceeds open position size "
+                        f"{position.quantity}."
+                    ),
+                )
         else:
-            # MARKET: fetch current ask price estimate
+            # Opening a new position — need margin
             last_price = await _get_last_price(redis_sym)
             if last_price is None or last_price <= Decimal("0"):
                 raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    status_code=503,
                     detail="Market price unavailable. Please try again shortly.",
                 )
-            lock_price = last_price * (Decimal("1") + _SLIPPAGE_BUFFER)
+            ref_price = Decimal(str(body.price)) if body.price else last_price
+            margin_required = (Decimal(str(body.quantity)) * ref_price) / Decimal(str(leverage))
 
-        lock_amount = Decimal(str(body.quantity)) * lock_price * (Decimal("1") + _FEE_RATE)
+            margin_account = await _get_or_create_margin_account(db, user_id)
+            available = Decimal(str(margin_account.available_margin))
+            if available < margin_required:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Insufficient margin. Required: {margin_required:.4f} USDT, "
+                        f"Available: {available:.4f} USDT"
+                    ),
+                )
+
+            # Reserve margin
+            margin_account.available_margin = available - margin_required
+            margin_account.used_margin = (
+                Decimal(str(margin_account.used_margin)) + margin_required
+            )
+
     else:
-        # SELL: lock base currency (e.g. BTC)
-        lock_currency = base_cur
-        lock_amount = Decimal(str(body.quantity))
+        # ── SPOT path ──────────────────────────────────────────────────────────
+        base_cur, quote_cur = _parse_currencies(symbol_upper)
 
-    # ── Check balance ──────────────────────────────────────────────────────────
-    wallet = await _get_wallet(db, user_id, lock_currency)
-    available = Decimal(str(wallet.balance)) if wallet else Decimal("0")
-    if available < lock_amount:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Insufficient {lock_currency} balance. "
-                f"Required: {lock_amount:.8f}, Available: {available:.8f}"
-            ),
-        )
+        if body.side == body.side.BUY:
+            lock_currency = quote_cur
+            if body.order_type.value in ("LIMIT", "TAKE_PROFIT"):
+                lock_price = Decimal(str(body.price))
+            elif body.order_type.value == "STOP_LOSS":
+                lock_price = Decimal(str(body.stop_price))
+            else:
+                last_price = await _get_last_price(redis_sym)
+                if last_price is None or last_price <= Decimal("0"):
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Market price unavailable. Please try again shortly.",
+                    )
+                lock_price = last_price * (Decimal("1") + _SLIPPAGE_BUFFER)
 
-    # ── Lock funds ─────────────────────────────────────────────────────────────
-    wallet.balance = available - lock_amount
-    wallet.locked_balance = Decimal(str(wallet.locked_balance)) + lock_amount
+            lock_amount = (
+                Decimal(str(body.quantity)) * lock_price * (Decimal("1") + _FEE_RATE)
+            )
+        else:
+            lock_currency = base_cur
+            lock_amount = Decimal(str(body.quantity))
+
+        wallet = await _get_wallet(db, user_id, lock_currency)
+        available = Decimal(str(wallet.balance)) if wallet else Decimal("0")
+        if available < lock_amount:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Insufficient {lock_currency} balance. "
+                    f"Required: {lock_amount:.8f}, Available: {available:.8f}"
+                ),
+            )
+
+        wallet.balance = available - lock_amount
+        wallet.locked_balance = Decimal(str(wallet.locked_balance)) + lock_amount
 
     # ── Persist order ──────────────────────────────────────────────────────────
     order = Order(
@@ -128,11 +215,13 @@ async def place_order(
         quantity=body.quantity,
         price=body.price,
         stop_price=body.stop_price,
+        leverage=body.leverage,
+        reduce_only=body.reduce_only,
         status=OrderStatus.PENDING,
         execution_mode=ExecutionMode.SIMULATION,
     )
     db.add(order)
-    await db.flush()   # get order.id before commit
+    await db.flush()
 
     await db.commit()
     await db.refresh(order)
@@ -148,16 +237,14 @@ async def place_order(
         "quantity": str(body.quantity),
         "price": str(body.price) if body.price else None,
         "stop_price": str(body.stop_price) if body.stop_price else None,
+        "leverage": body.leverage,
+        "reduce_only": body.reduce_only,
         "execution_mode": "SIMULATION",
     }
     redis = get_redis_pool()
     await redis.publish("orders.simulation", json.dumps(msg))
 
-    return PlaceOrderResponse(
-        order_id=order.id,
-        status=order.status,
-        message="Order received and queued for execution.",
-    )
+    return PlaceOrderResponse(order_id=order.id, status=order.status)
 
 
 @router.get("", response_model=List[OrderResponse])
@@ -202,35 +289,68 @@ async def cancel_order(
             detail=f"Cannot cancel an order with status {order.status.value}",
         )
 
-    # ── Release locked funds ───────────────────────────────────────────────────
-    base_cur, quote_cur = _parse_currencies(order.symbol)
-    if order.side.value == "BUY":
-        release_currency = quote_cur
+    # ── Release locked funds / margin ──────────────────────────────────────────
+    if order.market_type and order.market_type.value == "FUTURES" and not order.reduce_only:
+        leverage = order.leverage or 1
+        ref_price = Decimal(str(order.price or "0"))
+        if ref_price > 0:
+            margin_to_release = (
+                Decimal(str(order.quantity)) * ref_price / Decimal(str(leverage))
+            )
+            margin_account = await _get_or_create_margin_account(db, user_id)
+            margin_account.used_margin = max(
+                Decimal("0"),
+                Decimal(str(margin_account.used_margin)) - margin_to_release,
+            )
+            margin_account.available_margin = (
+                Decimal(str(margin_account.available_margin)) + margin_to_release
+            )
     else:
-        release_currency = base_cur
+        # SPOT: release locked wallet funds
+        base_cur, quote_cur = _parse_currencies(order.symbol)
+        release_currency = quote_cur if order.side.value == "BUY" else base_cur
 
-    # Estimate remaining locked amount (full lock for PENDING / OPEN, proportional for PARTIAL)
-    total_filled = sum(
-        Decimal(str(f.fill_quantity)) for f in order.fills
-    ) if order.fills else Decimal("0")
-    unfilled_qty = Decimal(str(order.quantity)) - total_filled
+        total_filled = (
+            sum(Decimal(str(f.fill_quantity)) for f in order.fills)
+            if order.fills
+            else Decimal("0")
+        )
+        unfilled_qty = Decimal(str(order.quantity)) - total_filled
 
-    if order.side.value == "BUY":
-        # Use the order price; for MARKET orders, we may not have an exact price stored.
-        # Fall back to a best-effort: release what's in locked_balance for this order.
-        # The safest approach is to release proportionally.
-        ref_price = Decimal(str(order.price or order.stop_price or "0"))
-        release_amount = unfilled_qty * ref_price * (Decimal("1") + _FEE_RATE) if ref_price else Decimal("0")
-    else:
-        release_amount = unfilled_qty
+        if order.side.value == "BUY":
+            ref_price = Decimal(str(order.price or order.stop_price or "0"))
+            release_amount = (
+                unfilled_qty * ref_price * (Decimal("1") + _FEE_RATE)
+                if ref_price
+                else Decimal("0")
+            )
+        else:
+            release_amount = unfilled_qty
 
-    if release_amount > Decimal("0"):
-        wallet = await _get_wallet(db, user_id, release_currency)
-        if wallet:
-            release = min(release_amount, Decimal(str(wallet.locked_balance)))
-            wallet.locked_balance = Decimal(str(wallet.locked_balance)) - release
-            wallet.balance = Decimal(str(wallet.balance)) + release
+        if release_amount > Decimal("0"):
+            wallet = await _get_wallet(db, user_id, release_currency)
+            if wallet:
+                release = min(release_amount, Decimal(str(wallet.locked_balance)))
+                wallet.locked_balance = Decimal(str(wallet.locked_balance)) - release
+                wallet.balance = Decimal(str(wallet.balance)) + release
 
     order.status = OrderStatus.CANCELLED
     await db.commit()
+
+
+@router.get("/margin", tags=["Futures"])
+async def get_margin_account(
+    user_id: Annotated[uuid.UUID, Depends(get_current_user_id)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Return the user's simulation futures margin account balance."""
+    account = await _get_or_create_margin_account(db, user_id)
+    await db.commit()
+    total = float(account.total_margin_balance)
+    return {
+        "total_margin_balance": str(account.total_margin_balance),
+        "available_margin": str(account.available_margin),
+        "used_margin": str(account.used_margin),
+        "margin_usage_pct": round(float(account.used_margin) / total * 100, 2) if total > 0 else 0.0,
+    }
 

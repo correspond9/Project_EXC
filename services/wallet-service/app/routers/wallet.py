@@ -8,8 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..dependencies.auth import get_current_user_id, require_admin
+from ..models.margin import FuturesExecutionMode, MarginAccount
 from ..models.wallet import SimulationWallet
-from ..schemas.wallet import TopUpRequest, TopUpResponse, WalletResponse
+from ..schemas.wallet import (
+    MarginTopUpRequest,
+    MarginTopUpResponse,
+    TopUpRequest,
+    TopUpResponse,
+    WalletResponse,
+)
 
 router = APIRouter(prefix="/api/wallet", tags=["Wallet"])
 admin_router = APIRouter(prefix="/api/admin/wallet", tags=["Admin — Wallet"])
@@ -69,4 +76,50 @@ async def admin_topup(
         currency=wallet.currency,
         new_balance=wallet.balance,
         message=f"Credited {body.amount} {body.currency.upper()} to simulation wallet.",
+    )
+
+
+@admin_router.post(
+    "/margin-topup",
+    response_model=MarginTopUpResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def admin_margin_topup(
+    body: MarginTopUpRequest,
+    _admin_id: Annotated[uuid.UUID, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """
+    Credit a user's SIMULATION margin account.
+    Creates the margin account row if it does not yet exist.
+    """
+    result = await db.execute(
+        select(MarginAccount).where(
+            MarginAccount.user_id == body.user_id,
+            MarginAccount.execution_mode == FuturesExecutionMode.SIMULATION,
+        )
+    )
+    acct = result.scalar_one_or_none()
+
+    if acct is None:
+        acct = MarginAccount(
+            user_id=body.user_id,
+            execution_mode=FuturesExecutionMode.SIMULATION,
+            total_margin_balance=body.amount,
+            available_margin=body.amount,
+            used_margin=Decimal("0"),
+        )
+        db.add(acct)
+    else:
+        acct.total_margin_balance = Decimal(str(acct.total_margin_balance)) + body.amount
+        acct.available_margin = Decimal(str(acct.available_margin)) + body.amount
+
+    await db.commit()
+    await db.refresh(acct)
+
+    return MarginTopUpResponse(
+        user_id=body.user_id,
+        total_margin_balance=acct.total_margin_balance,
+        available_margin=acct.available_margin,
+        message=f"Credited {body.amount} USDT to simulation margin account.",
     )
