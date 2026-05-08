@@ -10,8 +10,8 @@ the browser WebSocket API cannot set custom headers.
 import json
 import logging
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
-from jose import JWTError, jwt
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from jose import jwt
 
 from ..config import settings
 from ..redis_client import get_redis_pool
@@ -21,21 +21,24 @@ router = APIRouter()
 
 
 @router.websocket("/ws/user/orders")
-async def user_order_fills(
-    websocket: WebSocket,
-    token: str = Query(..., description="JWT access token"),
-):
-    # ── Authenticate ──────────────────────────────────────────────────────────
+async def user_order_fills(websocket: WebSocket):
+    # Read token from query params (browser WS API cannot set custom headers)
+    token = websocket.query_params.get("token", "")
+
+    # -- Authenticate
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if not user_id:
-            await websocket.close(code=4001)
+            log.warning("ws/user/orders: token has no sub claim")
+            await websocket.close(code=1008)
             return
-    except JWTError:
-        await websocket.close(code=4001)
+    except Exception as exc:
+        log.error("ws/user/orders: auth failed %s: %s", type(exc).__name__, exc)
+        await websocket.close(code=1008)
         return
 
+    log.info("ws/user/orders: accepting user %s", user_id)
     await websocket.accept()
     log.info("ws/user/orders: user %s connected", user_id)
 
@@ -53,7 +56,6 @@ async def user_order_fills(
                 payload_json = json.loads(data_bytes)
                 await websocket.send_json(payload_json)
             except Exception:
-                # If client disconnected, the send will raise — exit gracefully
                 break
     except WebSocketDisconnect:
         pass

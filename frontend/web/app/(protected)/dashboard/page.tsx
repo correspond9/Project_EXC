@@ -19,9 +19,9 @@ interface Ticker {
   symbol: string;
   last_price: string;
   price_change_pct: string;
-  high_24h: string;
-  low_24h: string;
-  volume_24h: string;
+  high_price: string;
+  low_price: string;
+  volume: string;
 }
 
 interface OrderBookEntry {
@@ -200,7 +200,13 @@ export default function DashboardPage() {
   useEffect(() => {
     const ws = new WebSocket(wsUrl(`/market/${symbol}/orderbook`));
     ws.onmessage = (ev) => {
-      try { setOrderBook(JSON.parse(ev.data)); } catch (_) {}
+      try {
+        const raw = JSON.parse(ev.data);
+        setOrderBook({
+          bids: (raw.bids ?? []).map((b: string[]) => ({ price: b[0], quantity: b[1] })),
+          asks: (raw.asks ?? []).map((a: string[]) => ({ price: a[0], quantity: a[1] })),
+        });
+      } catch (_) {}
     };
     return () => ws.close();
   }, [symbol]);
@@ -442,13 +448,13 @@ export default function DashboardPage() {
                 {ticker.price_change_pct}%
               </span>
               <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
-                H: ${parseFloat(ticker.high_24h).toLocaleString()}
+                H: ${parseFloat(ticker.high_price).toLocaleString()}
               </span>
               <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
-                L: ${parseFloat(ticker.low_24h).toLocaleString()}
+                L: ${parseFloat(ticker.low_price).toLocaleString()}
               </span>
               <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
-                Vol: {parseFloat(ticker.volume_24h).toLocaleString()}
+                Vol: {parseFloat(ticker.volume).toLocaleString()}
               </span>
             </div>
           )}

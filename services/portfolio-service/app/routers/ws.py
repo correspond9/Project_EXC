@@ -120,6 +120,7 @@ async def _build_snapshot(user_id: uuid.UUID) -> dict:
             "usdt_balance": str(usdt_balance),
             "total_unrealised_pnl": str(total_unrealised),
             "total_realised_pnl": str(total_realised),
+            "todays_pnl_delta": "0",
         },
     }
 

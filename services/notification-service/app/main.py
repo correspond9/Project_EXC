@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
     await close_redis_pool()
 
 
-app = FastAPI(title="XChange Notification Service", lifespan=lifespan)
+app = FastAPI(title="XChange Notification Service", lifespan=lifespan, redirect_slashes=False)
 
 app.include_router(notifications.router)
 app.include_router(alerts.router)
