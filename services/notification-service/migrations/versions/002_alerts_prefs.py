@@ -17,16 +17,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Enum for alert condition direction
-    op.execute(
-        """
-        DO $$ BEGIN
-            CREATE TYPE alert_condition AS ENUM ('ABOVE', 'BELOW');
-        EXCEPTION WHEN duplicate_object THEN NULL;
-        END $$
-        """
-    )
-
     # ── price_alerts ──────────────────────────────────────────────────────────
     op.create_table(
         "price_alerts",
@@ -40,7 +30,7 @@ def upgrade() -> None:
         sa.Column("symbol", sa.String(20), nullable=False),
         sa.Column(
             "condition",
-            sa.Enum("ABOVE", "BELOW", name="alert_condition", create_type=False),
+            sa.Enum("ABOVE", "BELOW", name="alert_condition"),
             nullable=False,
         ),
         sa.Column("target_price", sa.Numeric(28, 8), nullable=False),

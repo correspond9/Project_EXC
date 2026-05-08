@@ -17,13 +17,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Enums
-    op.execute("CREATE TYPE option_type AS ENUM ('CALL', 'PUT')")
-    op.execute(
-        "CREATE TYPE options_position_status AS ENUM "
-        "('OPEN', 'EXPIRED_ITM', 'EXPIRED_OTM')"
-    )
-
     # ── options_contracts ──────────────────────────────────────────────────────
     op.create_table(
         "options_contracts",
@@ -36,7 +29,7 @@ def upgrade() -> None:
         sa.Column("underlying_symbol", sa.String(20), nullable=False),
         sa.Column(
             "option_type",
-            sa.Enum("CALL", "PUT", name="option_type", create_type=False),
+            sa.Enum("CALL", "PUT", name="option_type"),
             nullable=False,
         ),
         sa.Column("strike_price", sa.Numeric(28, 8), nullable=False),
@@ -74,7 +67,7 @@ def upgrade() -> None:
         sa.Column("underlying_symbol", sa.String(20), nullable=False),
         sa.Column(
             "option_type",
-            sa.Enum("CALL", "PUT", name="option_type", create_type=False),
+            sa.Enum("CALL", "PUT", name="option_type"),
             nullable=False,
         ),
         sa.Column("strike_price", sa.Numeric(28, 8), nullable=False),
@@ -90,7 +83,7 @@ def upgrade() -> None:
                 "EXPIRED_ITM",
                 "EXPIRED_OTM",
                 name="options_position_status",
-                create_type=False,
+                
             ),
             nullable=False,
             server_default="OPEN",

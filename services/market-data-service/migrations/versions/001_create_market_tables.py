@@ -18,15 +18,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # ── ENUM ──────────────────────────────────────────────────────────────────
-    # Use IF NOT EXISTS — market_type may already exist from another service
-    op.execute(
-        "DO $$ BEGIN "
-        "CREATE TYPE market_type AS ENUM ('SPOT', 'FUTURES', 'OPTIONS'); "
-        "EXCEPTION WHEN duplicate_object THEN NULL; "
-        "END $$"
-    )
-
     # ── trading_pairs ─────────────────────────────────────────────────────────
     op.create_table(
         "trading_pairs",
@@ -42,7 +33,7 @@ def upgrade() -> None:
         sa.Column("quote_asset", sa.String(10), nullable=False),
         sa.Column(
             "market_type",
-            sa.Enum("SPOT", "FUTURES", "OPTIONS", name="market_type", create_type=False),
+            sa.Enum("SPOT", "FUTURES", "OPTIONS", name="market_type"),
             nullable=False,
             server_default="SPOT",
         ),

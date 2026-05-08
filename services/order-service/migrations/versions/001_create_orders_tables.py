@@ -18,20 +18,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # ── ENUMs ─────────────────────────────────────────────────────────────────
-    for name, values in [
-        ("order_side", ("BUY", "SELL")),
-        ("order_type", ("MARKET", "LIMIT", "STOP_LOSS", "TAKE_PROFIT")),
-        ("market_type_order", ("SPOT", "FUTURES", "OPTIONS")),
-        ("order_status", ("PENDING", "OPEN", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "REJECTED")),
-        ("execution_mode", ("SIMULATION", "LIVE")),
-    ]:
-        vals = ", ".join(f"'{v}'" for v in values)
-        op.execute(
-            f"DO $$ BEGIN CREATE TYPE {name} AS ENUM ({vals}); "
-            f"EXCEPTION WHEN duplicate_object THEN NULL; END $$"
-        )
-
     # ── orders ────────────────────────────────────────────────────────────────
     op.create_table(
         "orders",
@@ -45,17 +31,17 @@ def upgrade() -> None:
         sa.Column("symbol", sa.String(20), nullable=False),
         sa.Column(
             "side",
-            sa.Enum("BUY", "SELL", name="order_side", create_type=False),
+            sa.Enum("BUY", "SELL", name="order_side"),
             nullable=False,
         ),
         sa.Column(
             "order_type",
-            sa.Enum("MARKET", "LIMIT", "STOP_LOSS", "TAKE_PROFIT", name="order_type", create_type=False),
+            sa.Enum("MARKET", "LIMIT", "STOP_LOSS", "TAKE_PROFIT", name="order_type"),
             nullable=False,
         ),
         sa.Column(
             "market_type",
-            sa.Enum("SPOT", "FUTURES", "OPTIONS", name="market_type_order", create_type=False),
+            sa.Enum("SPOT", "FUTURES", "OPTIONS", name="market_type_order"),
             nullable=False,
             server_default="SPOT",
         ),
@@ -66,14 +52,13 @@ def upgrade() -> None:
             sa.Enum(
                 "PENDING", "OPEN", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "REJECTED",
                 name="order_status",
-                create_type=False,
             ),
             nullable=False,
             server_default="PENDING",
         ),
         sa.Column(
             "execution_mode",
-            sa.Enum("SIMULATION", "LIVE", name="execution_mode", create_type=False),
+            sa.Enum("SIMULATION", "LIVE", name="execution_mode"),
             nullable=False,
             server_default="SIMULATION",
         ),

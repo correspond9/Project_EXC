@@ -18,17 +18,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # ── New ENUMs ──────────────────────────────────────────────────────────────
-    for name, values in [
-        ("position_side", ("LONG", "SHORT")),
-        ("position_status", ("OPEN", "CLOSED", "LIQUIDATED")),
-    ]:
-        vals = ", ".join(f"'{v}'" for v in values)
-        op.execute(
-            f"DO $$ BEGIN CREATE TYPE {name} AS ENUM ({vals}); "
-            f"EXCEPTION WHEN duplicate_object THEN NULL; END $$"
-        )
-
     # ── Add columns to orders ─────────────────────────────────────────────────
     op.add_column("orders", sa.Column("leverage", sa.Integer(), nullable=True))
     op.add_column("orders", sa.Column("reduce_only", sa.Boolean(), nullable=False, server_default="false"))
@@ -71,7 +60,7 @@ def upgrade() -> None:
         sa.Column("symbol", sa.String(20), nullable=False),
         sa.Column(
             "side",
-            sa.Enum("LONG", "SHORT", name="position_side", create_type=False),
+            sa.Enum("LONG", "SHORT", name="position_side"),
             nullable=False,
         ),
         sa.Column(
@@ -90,7 +79,7 @@ def upgrade() -> None:
         sa.Column("closed_price", sa.Numeric(28, 8), nullable=True),
         sa.Column(
             "status",
-            sa.Enum("OPEN", "CLOSED", "LIQUIDATED", name="position_status", create_type=False),
+            sa.Enum("OPEN", "CLOSED", "LIQUIDATED", name="position_status"),
             nullable=False,
             server_default="OPEN",
         ),

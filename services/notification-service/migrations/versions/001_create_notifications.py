@@ -18,17 +18,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute(
-        """
-        DO $$ BEGIN
-            CREATE TYPE notification_type AS ENUM (
-                'FILL', 'MARGIN_CALL', 'LIQUIDATION', 'PRICE_ALERT', 'SYSTEM'
-            );
-        EXCEPTION WHEN duplicate_object THEN NULL;
-        END $$
-        """
-    )
-
     op.create_table(
         "notifications",
         sa.Column(
@@ -43,7 +32,6 @@ def upgrade() -> None:
             sa.Enum(
                 "FILL", "MARGIN_CALL", "LIQUIDATION", "PRICE_ALERT", "SYSTEM",
                 name="notification_type",
-                create_type=False,
             ),
             nullable=False,
         ),
