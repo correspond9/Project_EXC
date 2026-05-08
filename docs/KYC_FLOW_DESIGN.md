@@ -1,6 +1,6 @@
 # KYC Flow Design (Phase 4)
 
-**Version:** 0.1  
+**Version:** 0.2  
 **Date:** 08-May-2026  
 **Status:** Approved for implementation planning
 
@@ -46,6 +46,7 @@ Allowed transitions:
 
 5. LIVE mode gating
 - trading_mode can switch to LIVE only when KYC_APPROVED is present.
+- For POWER_USER and SUPER_USER, the same KYC_APPROVED gate applies before LIVE activation.
 
 ## 4. Error and Retry Handling
 
@@ -75,8 +76,10 @@ Audit events required:
 
 - POST /api/kyc/submit
 - GET /api/kyc/status
+- GET /api/admin/kyc/queue
 - POST /api/admin/kyc/{user_id}/approve
 - POST /api/admin/kyc/{user_id}/reject
+- POST /api/kyc/webhook/provider
 
 ## 7. Security Constraints
 
@@ -84,3 +87,4 @@ Audit events required:
 - Admin review endpoints require ADMIN or SUPER_ADMIN.
 - Store only references to binary files in app DB; binary storage lives in object storage.
 - All compliance logs are immutable and timestamped.
+- SUPER_USER profiles remain non-discoverable to non-SUPER_ADMIN operators in admin surfaces.

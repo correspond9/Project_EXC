@@ -117,6 +117,28 @@ class KYCSubmissionResponse(BaseModel):
     submitted_documents: int
 
 
+class KYCDecisionRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+class KYCProviderWebhookRequest(BaseModel):
+    user_id: UUID
+    status: KYCStatus
+    provider_reference: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class KYCQueueItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: UUID
+    email: str
+    role: UserRole
+    kyc_status: KYCStatus
+    submitted_at: Optional[datetime] = None
+    documents: list[KYCDocumentResponse]
+
+
 # ── Partner Schemas ───────────────────────────────────────────────────────────
 
 class ReferredUserSummary(BaseModel):

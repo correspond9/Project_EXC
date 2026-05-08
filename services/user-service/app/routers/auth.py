@@ -20,6 +20,7 @@ from ..services.auth_service import (
     verify_password,
     write_audit_log,
 )
+from ..services.compliance_service import aml_screen_user
 
 settings = get_settings()
 
@@ -68,6 +69,42 @@ async def register(
 
     profile = UserProfile(user_id=user.id)
     db.add(profile)
+
+    aml_error: str | None = None
+    try:
+        aml_result = await aml_screen_user(
+            user_id=str(user.id),
+            email=user.email,
+            stage="REGISTRATION",
+        )
+        await write_audit_log(
+            db,
+            action="AML_CHECK_COMPLETED",
+            user_id=str(user.id),
+            entity_type="User",
+            entity_id=str(user.id),
+            ip_address=_client_ip(request),
+            extra_data={
+                "stage": "REGISTRATION",
+                "provider_name": aml_result.provider_name,
+                "decision": aml_result.decision,
+                "risk_score": aml_result.risk_score,
+                "matched_entities": aml_result.matched_entities,
+            },
+        )
+    except Exception as exc:
+        aml_error = str(exc)
+
+    if aml_error:
+        await write_audit_log(
+            db,
+            action="AML_CHECK_FAILED",
+            user_id=str(user.id),
+            entity_type="User",
+            entity_id=str(user.id),
+            ip_address=_client_ip(request),
+            extra_data={"stage": "REGISTRATION", "error": aml_error},
+        )
 
     await write_audit_log(
         db,

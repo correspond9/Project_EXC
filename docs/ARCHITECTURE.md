@@ -1,6 +1,6 @@
 # XChange Platform — System Architecture
-**Version:** 1.0  
-**Date:** 07-May-2026  
+**Version:** 1.1  
+**Date:** 08-May-2026  
 **Parent Document:** [MASTER_PLAN.md](./MASTER_PLAN.md)
 
 ---
@@ -112,7 +112,7 @@ order-service
   ├── Reserve funds
   ├── Publish order to Redis: channel = orders.live
         │
-        ▼
+| Users | users, user_profiles, kyc_documents, user_roles, partner_permissions, commission_ledger |
 execution-service (subscriber)
   ├── Call Binance API via CCXT: create_order()
   ├── Receive Binance order ID and status
@@ -151,10 +151,11 @@ Frontend clients (via WebSocket /ws/market/{symbol})
 - **Method:** JWT (JSON Web Tokens)  
 - **Access Token:** Short-lived (15 minutes)  
 - **Refresh Token:** Long-lived (7 days), stored in HttpOnly cookie  
-- **Roles:** STUDENT, TRADER, ADMIN, SUPER_ADMIN  
+- **Roles:** STUDENT, TRADER, PARTNER, POWER_USER, SUPER_USER, ADMIN, SUPER_ADMIN  
 - **Every API endpoint** requires a valid JWT except: /register, /login, /health  
 - **Role-based guards** on all admin endpoints  
 - **2FA:** TOTP (Google Authenticator) — optional for students, mandatory for Admins  
+- **Visibility rule:** SUPER_USER accounts are not visible to non-SUPER_ADMIN callers in admin and reporting flows.
 
 ---
 
@@ -166,10 +167,11 @@ Frontend clients (via WebSocket /ws/market/{symbol})
 | id | UUID | Primary key |
 | email | VARCHAR(255) | Unique, indexed |
 | password_hash | VARCHAR | bcrypt |
-| role | ENUM | STUDENT, TRADER, ADMIN, SUPER_ADMIN |
+| role | ENUM | STUDENT, TRADER, PARTNER, POWER_USER, SUPER_USER, ADMIN, SUPER_ADMIN |
 | trading_mode | ENUM | SIMULATION, LIVE |
 | kyc_status | ENUM | PENDING, SUBMITTED, APPROVED, REJECTED |
 | language_preference | ENUM | EN, AR |
+| referred_by | UUID (nullable) | FK -> users.id (Partner referral link) |
 | is_active | BOOLEAN | |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
@@ -415,4 +417,4 @@ Available: 200 GB NVMe + 400 GB SSD — adequate for Phase 1–3.
 
 ---
 
-*End of Architecture Document v1.0*
+*End of Architecture Document v1.1*

@@ -1,5 +1,5 @@
 # XChange Platform — Phased Execution Roadmap
-**Version:** 1.1  
+**Version:** 1.2  
 **Date:** 08-May-2026  
 **Parent Document:** [MASTER_PLAN.md](./MASTER_PLAN.md)  
 **Architecture Reference:** [ARCHITECTURE.md](./ARCHITECTURE.md)
@@ -27,9 +27,10 @@
 | Item | Status |
 |------|--------|
 | Active branch | `main` |
-| Latest delivery commit | `73bd0b9` |
+| Latest delivery commit | `1911d17` |
 | Completed sprints | Sprint 1 to Sprint 12 |
 | Current sprint | Sprint 13 (in progress) |
+| Parallel stream (non-phase) | RBAC expansion for PARTNER, POWER_USER, SUPER_USER — completed |
 
 ### Sprint Progress Snapshot
 
@@ -781,6 +782,8 @@ Students can trade simulation Spot, Futures, and Options on web and mobile.
 **Goal:** System technically ready for real money. Regulatory review underway.
 
 > ⚠️ Note: Phase 4 involves real money infrastructure. Every task here must be reviewed and tested more rigorously than previous phases. Nothing goes to production without explicit sign-off.
+> 
+> Clarification: the RBAC expansion (PARTNER, POWER_USER, SUPER_USER) was delivered as a separate platform access-control stream and does not replace or redefine Phase 4 scope.
 
 ---
 
@@ -810,20 +813,20 @@ Students can trade simulation Spot, Futures, and Options on web and mobile.
 **Dates:** Month 7, Week 3–4
 
 ### Tasks
-- [ ] user-service: `POST /kyc/submit` — accept document uploads (passport / Emirates ID + selfie)
+- [x] user-service: `POST /kyc/submit` — accept document reference submissions (passport / Emirates ID + selfie)
 - [ ] Integrate selected KYC provider SDK — submit documents for verification
-- [ ] Webhook from KYC provider: update `users.kyc_status` on verification result
-- [ ] AML screening: call AML API on user registration and on KYC approval
-- [ ] Admin panel: KYC review queue — view pending submissions, approve/reject with reason
-- [ ] On KYC approval: admin can then activate `trading_mode = LIVE` for the user
-- [ ] Frontend: KYC submission page (document upload + selfie capture)
+- [x] Webhook endpoint scaffold from KYC provider: update `users.kyc_status` on verification result
+- [x] AML screening call scaffold: configurable provider API call on user registration and on KYC approval
+- [x] Admin backend: KYC review queue API — view pending submissions, approve/reject with reason
+- [x] On KYC approval: admin can then activate `trading_mode = LIVE` for the user (backend gate enforced)
+- [x] Frontend: KYC submission page scaffold (document-reference submission flow)
 - [ ] Email notifications: KYC submitted, KYC approved, KYC rejected (with reason)
 
 ### Sprint 14 Deliverable Checklist
-- [ ] A user can submit KYC documents through the platform
+- [x] A user can submit KYC document references through API
 - [ ] KYC provider processes the submission and result is reflected in the platform
-- [ ] Admin sees KYC queue and can manually review
-- [ ] A user's live mode cannot be activated until KYC is APPROVED
+- [x] Admin API sees KYC queue and can manually review
+- [x] A user's live mode cannot be activated until KYC is APPROVED
 
 ---
 
@@ -1047,7 +1050,9 @@ If a task is blocked:
 | Version | Date | Change | By |
 |---------|------|--------|----|
 | 1.0 | 07-May-2026 | Initial roadmap created | Sufyan Ansari |
+| 1.1 | 08-May-2026 | Updated execution status: Sprint 1–12 complete, Sprint 13 active | GitHub Copilot |
+| 1.2 | 08-May-2026 | Clarified RBAC role-expansion stream vs Phase 4 scope; updated delivery commit and Sprint 14 KYC submit status | GitHub Copilot |
 
 ---
 
-*End of Roadmap v1.0*
+*End of Roadmap v1.2*

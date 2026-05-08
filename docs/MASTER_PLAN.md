@@ -1,6 +1,6 @@
 # XChange Platform — Master Plan
-**Version:** 1.0  
-**Date:** 07-May-2026  
+**Version:** 1.1  
+**Date:** 08-May-2026  
 **Status:** Planning  
 **Owner:** Sufyan Ansari  
 
@@ -68,7 +68,10 @@ The same account can hold both wallets — the active mode determines which wall
 | Role | Description |
 |------|-------------|
 | **Student** | Academy student. Starts in Simulation mode. Cannot switch to Live on their own. |
-| **Graduated Trader** | Student promoted by Admin. Has access to Live mode. Subject to KYC. |
+| **Trader** | Standard trader profile used for users permitted to trade beyond student-only constraints. |
+| **Partner** | Affiliate/commission role. Can view referred users and own commission ledger. Referred-user trade visibility is discretionary and controlled by SUPER_ADMIN permission grants. |
+| **Power User** | Advanced simulation role with real wallet-affecting ledger behavior for P&L, charges, payin/payout, and admin manual entries. |
+| **Super User** | Power-user capability plus strict visibility controls: hidden from non-SUPER_ADMIN users across platform access paths. |
 | **Admin** | Full platform control. Can manage users, switch modes, configure markets, toggle language. |
 | **Super Admin** | Platform owner. All Admin access plus billing, compliance reports, regulatory exports. |
 
@@ -387,7 +390,8 @@ To protect scope and avoid feature creep:
 | Version | Date | Change | By |
 |---------|------|--------|----|
 | 1.0 | 07-May-2026 | Initial master plan created | Sufyan Ansari |
+| 1.1 | 08-May-2026 | Expanded role model with Partner, Power User, and Super User; aligned role definitions with implemented RBAC controls | GitHub Copilot |
 
 ---
 
-*End of Master Plan v1.0*
+*End of Master Plan v1.1*

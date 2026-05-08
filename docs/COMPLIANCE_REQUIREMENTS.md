@@ -1,6 +1,6 @@
 # XChange Platform - Compliance Requirements (Sprint 13 Draft)
 
-**Version:** 0.1  
+**Version:** 0.2  
 **Date:** 08-May-2026  
 **Status:** Draft (internal, pending legal validation)
 
@@ -46,6 +46,8 @@ This is a technical and operational draft. It must be reviewed and approved by U
 - Compliance endpoints require JWT authentication.
 - KYC review/approval actions are admin-only.
 - Least-privilege access model for compliance data.
+- SUPER_USER account visibility is restricted to SUPER_ADMIN for discovery and profile access.
+- Partner access to referred-user trade history is discretionary and must be explicitly granted by SUPER_ADMIN.
 
 ### 3.5 Security Baseline Before Live Trading
 - TLS termination enabled in production.
@@ -98,6 +100,7 @@ This is a technical and operational draft. It must be reviewed and approved by U
 - Added provider evaluation draft: docs/KYC_AML_PROVIDER_EVALUATION.md
 - Added KYC flow design draft: docs/KYC_FLOW_DESIGN.md
 - Added user-service KYC submission scaffold and DB migration (technical kickoff for Sprint 14)
+- Added RBAC expansion for PARTNER, POWER_USER, and SUPER_USER roles with visibility and permission controls.
 
 ## 7. Open Items Requiring Legal Input
 

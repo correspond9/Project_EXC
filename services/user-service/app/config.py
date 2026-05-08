@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # ── Compliance / KYC ─────────────────────────────────────────────────────
+    KYC_WEBHOOK_SECRET: str = ""
+    AML_PROVIDER_URL: str = ""
+    AML_PROVIDER_API_KEY: str = ""
+    AML_RISK_REVIEW_THRESHOLD: float = 70.0
+
     # ── App ───────────────────────────────────────────────────────────────────
     ENVIRONMENT: str = "development"
     DEBUG: bool = False

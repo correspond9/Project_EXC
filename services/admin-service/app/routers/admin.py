@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..dependencies.auth import AdminContext, require_admin, require_admin_context
 from ..models.position_limit import UserPositionLimit
-from ..models.user import User
+from ..models.user import KYCStatus, TradingMode, User
 from ..schemas.admin import (
     UpdateTradingModeRequest,
     UpdateUserStatusRequest,
@@ -98,6 +98,12 @@ async def update_trading_mode(
     user = result.scalar_one_or_none()
     if user is None or (str(user.role) == "SUPER_USER" and not ctx.is_super_admin):
         raise HTTPException(status_code=404, detail="User not found")
+
+    if body.trading_mode == TradingMode.LIVE and user.kyc_status != KYCStatus.APPROVED:
+        raise HTTPException(
+            status_code=400,
+            detail="KYC must be APPROVED before enabling LIVE mode.",
+        )
 
     user.trading_mode = body.trading_mode
     await db.commit()

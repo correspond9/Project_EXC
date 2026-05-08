@@ -66,6 +66,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
 
   const navLinks = [
     { href: "/dashboard", label: "Dashboard" },
+    { href: "/kyc", label: "KYC" },
     { href: "/portfolio", label: "Portfolio" },
     { href: "/history", label: "Trade History" },
     ...(userRole === "ADMIN" || userRole === "SUPER_ADMIN"

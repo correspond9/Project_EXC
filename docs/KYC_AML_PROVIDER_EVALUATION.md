@@ -10,6 +10,9 @@ Evaluate candidate providers for KYC and AML integration in Phase 4:
 - Jumio
 - Onfido
 
+Scope note:
+- RBAC expansion (PARTNER, POWER_USER, SUPER_USER) is a separate access-control stream and does not change provider selection criteria for Phase 4.
+
 ## 2. Evaluation Criteria
 
 | Criterion | Weight | Notes |

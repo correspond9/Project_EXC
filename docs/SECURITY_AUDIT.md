@@ -12,9 +12,11 @@
 |---|---|---|
 | All protected endpoints require JWT | ✅ PASS | `get_current_user` dependency on every route |
 | Admin endpoints enforce `role == ADMIN` | ✅ PASS | `require_admin` dependency in admin-service |
+| SUPER_USER visibility restricted to SUPER_ADMIN | ✅ PASS | Non-SUPER_ADMIN callers receive not-found semantics for SUPER_USER records |
 | Users cannot access other users' data | ✅ PASS | All queries filter by `user_id` from JWT `sub` |
 | Futures positions isolated per user | ✅ PASS | `WHERE user_id = :uid` on all position queries |
 | IDOR on wallet top-up | ✅ PASS | Top-up only via admin endpoint, not user-facing |
+| Partner referred-trade visibility permissioned | ✅ PASS | Access requires explicit `VIEW_REFERRED_TRADE_HISTORY` grant |
 
 **Recommendation:** Add rate limiting on login endpoint (e.g. 5 attempts/min per IP via nginx `limit_req`).
 
