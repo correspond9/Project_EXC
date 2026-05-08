@@ -15,6 +15,9 @@ class NotificationType(str, enum.Enum):
     LIQUIDATION = "LIQUIDATION"
     PRICE_ALERT = "PRICE_ALERT"
     SYSTEM = "SYSTEM"
+    KYC_SUBMITTED = "KYC_SUBMITTED"
+    KYC_APPROVED = "KYC_APPROVED"
+    KYC_REJECTED = "KYC_REJECTED"
 
 
 class Notification(Base):

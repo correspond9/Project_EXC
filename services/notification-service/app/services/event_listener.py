@@ -25,6 +25,9 @@ from ..models.notification import Notification, NotificationType
 from ..routers.ws import broadcast
 from ..services.email_service import (
     send_fill_email,
+    send_kyc_approved_email,
+    send_kyc_rejected_email,
+    send_kyc_submitted_email,
     send_liquidation_email,
     send_margin_call_email,
     send_price_alert_email,
@@ -130,6 +133,7 @@ class EventListener:
             self._run(redis_client, "fills.*", self._handle_fill),
             self._run(redis_client, "risk.margin_call.*", self._handle_margin_call),
             self._run(redis_client, "risk.liquidation.*", self._handle_liquidation),
+            self._run(redis_client, "kyc.*", self._handle_kyc),
             self._run_ticker_monitor(redis_client),
         )
 
@@ -214,6 +218,46 @@ class EventListener:
                     liquidation_price=str(msg.get("liquidation_price", "")),
                     realised_pnl=str(msg.get("realised_pnl", "0")),
                 )
+
+    async def _handle_kyc(self, msg: dict) -> None:
+        """Handle kyc.submitted.*, kyc.approved.*, kyc.rejected.* events."""
+        event = msg.get("event", "")
+        user_id_str = msg.get("user_id", "")
+        email = msg.get("email", "")
+        if not user_id_str:
+            return
+        user_id = uuid.UUID(user_id_str)
+
+        if event == "KYC_SUBMITTED":
+            await _save_and_broadcast(
+                user_id,
+                NotificationType.KYC_SUBMITTED,
+                "KYC Submitted",
+                "Your KYC documents have been received and are under review.",
+            )
+            if email:
+                await send_kyc_submitted_email(to_email=email)
+
+        elif event == "KYC_APPROVED":
+            await _save_and_broadcast(
+                user_id,
+                NotificationType.KYC_APPROVED,
+                "KYC Approved",
+                "Your KYC verification has been approved. You are now eligible for Live trading.",
+            )
+            if email:
+                await send_kyc_approved_email(to_email=email)
+
+        elif event == "KYC_REJECTED":
+            reason = msg.get("reason", "")
+            await _save_and_broadcast(
+                user_id,
+                NotificationType.KYC_REJECTED,
+                "KYC Rejected",
+                f"Your KYC submission was rejected. {reason}".strip(),
+            )
+            if email:
+                await send_kyc_rejected_email(to_email=email, reason=reason)
 
     # ──────────────────────────────────────────────────────────────────────────
     # Price alert monitor — subscribes to market.ticker.*

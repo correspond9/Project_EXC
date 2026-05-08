@@ -27,9 +27,9 @@
 | Item | Status |
 |------|--------|
 | Active branch | `main` |
-| Latest delivery commit | `1911d17` |
+| Latest delivery commit | `ac77bf2` |
 | Completed sprints | Sprint 1 to Sprint 12 |
-| Current sprint | Sprint 13 (in progress) |
+| Current sprint | Sprint 14 (in progress — KYC emails complete, provider SDK pending) |
 | Parallel stream (non-phase) | RBAC expansion for PARTNER, POWER_USER, SUPER_USER — completed |
 
 ### Sprint Progress Snapshot
@@ -37,8 +37,8 @@
 | Sprint | Status |
 |--------|--------|
 | Sprint 1 to Sprint 12 | ✅ Completed |
-| Sprint 13 | 🚧 In Progress |
-| Sprint 14 to Sprint 24 | ⏳ Not Started |
+| Sprint 13 | ✅ Completed (technical + docs; legal/provider decisions still pending externally) |
+| Sprint 14 | 🚧 In Progress |
 
 ---
 
@@ -820,7 +820,7 @@ Students can trade simulation Spot, Futures, and Options on web and mobile.
 - [x] Admin backend: KYC review queue API — view pending submissions, approve/reject with reason
 - [x] On KYC approval: admin can then activate `trading_mode = LIVE` for the user (backend gate enforced)
 - [x] Frontend: KYC submission page scaffold (document-reference submission flow)
-- [ ] Email notifications: KYC submitted, KYC approved, KYC rejected (with reason)
+- [x] Email notifications: KYC submitted, KYC approved, KYC rejected (with reason)
 
 ### Sprint 14 Deliverable Checklist
 - [x] A user can submit KYC document references through API

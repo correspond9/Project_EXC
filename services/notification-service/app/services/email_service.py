@@ -160,3 +160,48 @@ async def send_price_alert_email(
         """,
     )
     await _send(to_email, subject, html)
+
+
+async def send_kyc_submitted_email(to_email: str) -> None:
+    subject = "XChange — KYC Submission Received"
+    html = _html_wrap(
+        "KYC Submission Received",
+        """
+        <p><span class="badge badge-yellow">UNDER REVIEW</span></p>
+        <p>We have received your KYC submission. Our compliance team will review
+           your documents within <strong>1–3 business days</strong>.</p>
+        <p>You will be notified by email once a decision has been made.</p>
+        """,
+    )
+    await _send(to_email, subject, html)
+
+
+async def send_kyc_approved_email(to_email: str) -> None:
+    subject = "XChange — KYC Approved"
+    html = _html_wrap(
+        "KYC Approved",
+        """
+        <p><span class="badge badge-green">APPROVED</span></p>
+        <p>Congratulations! Your KYC verification has been <strong>approved</strong>.</p>
+        <p>Your account is now eligible to be activated for Live trading. Please
+           contact your account manager or wait for your administrator to activate
+           Live mode on your account.</p>
+        """,
+    )
+    await _send(to_email, subject, html)
+
+
+async def send_kyc_rejected_email(to_email: str, reason: str) -> None:
+    subject = "XChange — KYC Rejected"
+    reason_html = f"<p><strong>Reason:</strong> {reason}</p>" if reason else ""
+    html = _html_wrap(
+        "KYC Rejected",
+        f"""
+        <p><span class="badge badge-red">REJECTED</span></p>
+        <p>Unfortunately your KYC submission has been <strong>rejected</strong>.</p>
+        {reason_html}
+        <p>Please re-submit with the correct documents. If you believe this is an
+           error, contact support.</p>
+        """,
+    )
+    await _send(to_email, subject, html)

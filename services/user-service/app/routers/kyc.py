@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import json
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +11,7 @@ from ..config import get_settings
 from ..database import get_db
 from ..dependencies.auth import get_current_user, require_role
 from ..models.user import KYCDocument, KYCDocumentStatus, KYCStatus, User, UserRole
+from ..redis_client import get_redis_pool
 from ..schemas.user import (
     KYCDecisionRequest,
     KYCProviderWebhookRequest,
@@ -22,6 +25,17 @@ from ..services.compliance_service import aml_screen_user
 
 router = APIRouter(prefix="/kyc", tags=["KYC"])
 settings = get_settings()
+
+
+async def _publish_kyc_event(event: str, user_id: str, email: str, reason: str = "") -> None:
+    """Fire-and-forget: publish a KYC lifecycle event to Redis for notification-service."""
+    try:
+        redis = await get_redis_pool()
+        payload = json.dumps({"event": event, "user_id": user_id, "email": email, "reason": reason})
+        channel = f"kyc.{event.lower().removeprefix('kyc_')}.{user_id}"
+        await redis.publish(channel, payload)
+    except Exception:
+        pass  # Email notification failure must never block the main KYC action
 
 
 @router.post("/submit", response_model=KYCSubmissionResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -52,6 +66,8 @@ async def submit_kyc(
         entity_id=str(current_user.id),
         extra_data={"submitted_documents": len(body.documents)},
     )
+
+    await _publish_kyc_event("KYC_SUBMITTED", str(current_user.id), current_user.email)
 
     return KYCSubmissionResponse(
         message="KYC submission received.",
@@ -178,6 +194,7 @@ async def approve_kyc(
     )
 
     await db.flush()
+    await _publish_kyc_event("KYC_APPROVED", str(user.id), user.email)
     return KYCStatusResponse(kyc_status=user.kyc_status)
 
 
@@ -209,6 +226,7 @@ async def reject_kyc(
     )
 
     await db.flush()
+    await _publish_kyc_event("KYC_REJECTED", str(user.id), user.email, reason=body.reason or "")
     return KYCStatusResponse(kyc_status=user.kyc_status)
 
 
@@ -242,4 +260,11 @@ async def provider_webhook(
     )
 
     await db.flush()
+
+    # Notify user via notification-service when provider delivers a final decision
+    if body.status == KYCStatus.APPROVED:
+        await _publish_kyc_event("KYC_APPROVED", str(user.id), user.email)
+    elif body.status == KYCStatus.REJECTED:
+        await _publish_kyc_event("KYC_REJECTED", str(user.id), user.email, reason=body.reason or "")
+
     return KYCStatusResponse(kyc_status=user.kyc_status)
