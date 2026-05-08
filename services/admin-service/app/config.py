@@ -10,5 +10,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-in-production"
     ALGORITHM: str = "HS256"
 
+    REDIS_URL: str = "redis://redis:6379/0"
+
 
 settings = Settings()

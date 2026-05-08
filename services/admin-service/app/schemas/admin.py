@@ -13,6 +13,8 @@ class UserSummary(BaseModel):
     trading_mode: TradingMode
     kyc_status: KYCStatus
     is_active: bool
+    live_trading_enabled: bool = True
+    max_leverage_override: Optional[int] = None
     created_at: str
 
     model_config = {"from_attributes": True}
@@ -31,3 +33,11 @@ class UpdateTradingModeRequest(BaseModel):
 
 class UpdateUserStatusRequest(BaseModel):
     is_active: bool
+
+
+class SetLeverageCapRequest(BaseModel):
+    max_leverage_override: Optional[int] = None  # None = remove cap
+
+
+class SetLiveTradingEnabledRequest(BaseModel):
+    live_trading_enabled: bool

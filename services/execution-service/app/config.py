@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     # Safety: always default to testnet until explicitly disabled
     BINANCE_TESTNET: bool = True
 
+    # Deribit API credentials (Sprint 22 — Options routing)
+    DERIBIT_API_KEY: str = ""
+    DERIBIT_API_SECRET: str = ""
+    # Safety: always default to Deribit testnet until explicitly disabled
+    DERIBIT_TESTNET: bool = True
+
     # How long to poll Binance for a fill (seconds)
     ORDER_POLL_TIMEOUT_SECONDS: int = 1800
     ORDER_POLL_INTERVAL_SECONDS: int = 3

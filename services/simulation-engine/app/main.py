@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Simulation Engine",
     description="Fills simulation orders against live Binance order book depth.",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 

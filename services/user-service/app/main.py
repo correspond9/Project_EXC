@@ -21,7 +21,7 @@ app = FastAPI(
         "Handles user registration, login, JWT authentication, "
         "refresh token lifecycle, user profiles, and KYC status."
     ),
-    version="0.2.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 

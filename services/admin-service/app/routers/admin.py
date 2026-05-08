@@ -173,3 +173,60 @@ async def set_position_limit(
         "user_id": str(user_id),
         "max_position_value_usdt": str(body.max_position_value_usdt),
     }
+
+
+# ── Per-user leverage cap (Sprint 21) ─────────────────────────────────────────
+
+class SetLeverageCapRequest(BaseModel):
+    max_leverage_override: int | None = None  # None = remove cap
+
+
+@router.put("/{user_id}/leverage-cap", response_model=UserSummary)
+async def set_leverage_cap(
+    user_id: uuid.UUID,
+    body: SetLeverageCapRequest,
+    ctx: Annotated[AdminContext, Depends(require_admin_context)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Set or remove a per-user leverage ceiling for LIVE FUTURES orders.
+    Passing null removes the cap (reverts to platform default).
+    """
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None or (str(user.role) == "SUPER_USER" and not ctx.is_super_admin):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if body.max_leverage_override is not None and body.max_leverage_override < 1:
+        raise HTTPException(status_code=400, detail="max_leverage_override must be >= 1")
+
+    user.max_leverage_override = body.max_leverage_override
+    await db.commit()
+    await db.refresh(user)
+    return UserSummary.model_validate(user)
+
+
+# ── Per-user LIVE trading gate (Sprint 20 beta) ────────────────────────────────
+
+class SetLiveTradingEnabledRequest(BaseModel):
+    live_trading_enabled: bool
+
+
+@router.put("/{user_id}/live-enabled", response_model=UserSummary)
+async def set_live_trading_enabled(
+    user_id: uuid.UUID,
+    body: SetLiveTradingEnabledRequest,
+    ctx: Annotated[AdminContext, Depends(require_admin_context)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Enable or disable LIVE trading access for an individual user.
+    Useful during beta rollout to gate specific users.
+    """
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None or (str(user.role) == "SUPER_USER" and not ctx.is_super_admin):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.live_trading_enabled = body.live_trading_enabled
+    await db.commit()
+    await db.refresh(user)
+    return UserSummary.model_validate(user)

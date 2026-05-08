@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     Enum as SAEnum,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     Text,
@@ -101,6 +102,9 @@ class User(Base):
         index=True,
     )
     is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    # Sprint 20 / 21 platform controls
+    live_trading_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    max_leverage_override = Column(Integer, nullable=True)
     created_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

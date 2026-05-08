@@ -110,9 +110,21 @@ async def place_order(
     symbol_upper = body.symbol.upper()
     redis_sym = symbol_upper.replace("/", "")
 
+    # ── Emergency halt check ───────────────────────────────────────────────────
+    _redis_check = get_redis_pool()
+    _halted = await _redis_check.exists("platform:trading_halted")
+    if _halted:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Trading is currently halted by the platform administrator.",
+        )
+
     # ── Check user trading mode ────────────────────────────────────────────────
     _mode_row = await db.execute(
-        sa.text("SELECT trading_mode, kyc_status FROM users WHERE id = :uid"),
+        sa.text(
+            "SELECT trading_mode, kyc_status, live_trading_enabled, max_leverage_override "
+            "FROM users WHERE id = :uid"
+        ),
         {"uid": str(user_id)},
     )
     _user_info = _mode_row.fetchone()
@@ -120,9 +132,23 @@ async def place_order(
         _user_info is not None
         and _user_info.trading_mode == "LIVE"
         and _user_info.kyc_status == "APPROVED"
+        and _user_info.live_trading_enabled is not False
     )
 
     if _is_live:
+        # ── Sprint 21: per-user leverage cap check (FUTURES only) ─────────────
+        _max_lev = _user_info.max_leverage_override if _user_info else None
+        if (
+            body.market_type == MarketType.FUTURES
+            and _max_lev is not None
+            and body.leverage is not None
+            and body.leverage > _max_lev
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Requested leverage {body.leverage}× exceeds your permitted maximum of {_max_lev}×.",
+            )
+
         # ── LIVE order: skip simulation wallet, route to execution-service ────
         order = Order(
             user_id=user_id,
@@ -156,7 +182,13 @@ async def place_order(
             "execution_mode": "LIVE",
         }
         _redis = get_redis_pool()
-        await _redis.publish("orders.live", json.dumps(_live_msg))
+        # Sprint 22: OPTIONS orders route to a dedicated channel for Deribit
+        _live_channel = (
+            "orders.live.options"
+            if body.market_type == MarketType.OPTIONS
+            else "orders.live"
+        )
+        await _redis.publish(_live_channel, json.dumps(_live_msg))
         return PlaceOrderResponse(order_id=order.id, status=order.status)
 
     # ── SIMULATION path ────────────────────────────────────────────────────────

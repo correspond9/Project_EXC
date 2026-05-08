@@ -1,0 +1,77 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: production
+
+scrape_configs:
+  # ── XChange microservices ────────────────────────────────────────────────────
+  # Each service must expose /metrics (Prometheus format) on port 8000.
+  # FastAPI services can add prometheus-fastapi-instrumentator or starlette-prometheus.
+
+  - job_name: user-service
+    static_configs:
+      - targets: [user-service:8000]
+    metrics_path: /metrics
+
+  - job_name: order-service
+    static_configs:
+      - targets: [order-service:8000]
+    metrics_path: /metrics
+
+  - job_name: wallet-service
+    static_configs:
+      - targets: [wallet-service:8000]
+    metrics_path: /metrics
+
+  - job_name: execution-service
+    static_configs:
+      - targets: [execution-service:8000]
+    metrics_path: /metrics
+    # execution-service only runs with the 'live' profile; errors are non-fatal
+
+  - job_name: market-data-service
+    static_configs:
+      - targets: [market-data-service:8000]
+    metrics_path: /metrics
+
+  - job_name: simulation-engine
+    static_configs:
+      - targets: [simulation-engine:8000]
+    metrics_path: /metrics
+
+  - job_name: portfolio-service
+    static_configs:
+      - targets: [portfolio-service:8000]
+    metrics_path: /metrics
+
+  - job_name: notification-service
+    static_configs:
+      - targets: [notification-service:8000]
+    metrics_path: /metrics
+
+  - job_name: risk-service
+    static_configs:
+      - targets: [risk-service:8000]
+    metrics_path: /metrics
+
+  - job_name: admin-service
+    static_configs:
+      - targets: [admin-service:8000]
+    metrics_path: /metrics
+
+  # ── Infrastructure ───────────────────────────────────────────────────────────
+
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+
+  # Redis exporter (optional — add oliver006/redis_exporter container if needed)
+  # - job_name: redis
+  #   static_configs:
+  #     - targets: [redis-exporter:9121]
+
+  # Postgres exporter (optional — add prometheuscommunity/postgres-exporter if needed)
+  # - job_name: postgres
+  #   static_configs:
+  #     - targets: [postgres-exporter:9187]

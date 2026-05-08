@@ -7,7 +7,7 @@ import enum
 import uuid
 from typing import Optional
 
-from sqlalchemy import Boolean, Enum as SAEnum, String, func
+from sqlalchemy import Boolean, Enum as SAEnum, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -51,6 +51,8 @@ class User(Base):
         SAEnum(KYCStatus, name="kycstatus", create_type=False)
     )
     is_active: Mapped[bool] = mapped_column(Boolean)
+    live_trading_enabled: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    max_leverage_override: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[str] = mapped_column(server_default=func.now())
     updated_at: Mapped[str] = mapped_column(server_default=func.now())
     # Partner referral link — nullable UUID of the referring PARTNER user

@@ -45,7 +45,7 @@ app = FastAPI(
         "Exposes REST endpoints for tickers, order books, and OHLCV history. "
         "Exposes WebSocket endpoints for live streaming to browser clients."
     ),
-    version="0.2.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
