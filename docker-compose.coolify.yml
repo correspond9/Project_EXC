@@ -238,6 +238,8 @@ services:
       context: ./frontend/web
     container_name: xchange-web-frontend
     env_file: .env
+    environment:
+      HOSTNAME: 0.0.0.0
     networks:
       - xchange-net
     restart: unless-stopped
