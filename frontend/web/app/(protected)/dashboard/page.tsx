@@ -7,6 +7,7 @@ import {
   ISeriesApi,
   CandlestickData,
   CrosshairMode,
+  CandlestickSeries,
 } from "lightweight-charts";
 import api from "@/lib/api";
 import { wsUrl } from "@/lib/ws";
@@ -112,7 +113,7 @@ export default function DashboardPage() {
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick", any> | null>(null);
 
   // ── Init chart ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -125,7 +126,7 @@ export default function DashboardPage() {
       width: chartContainerRef.current.clientWidth,
       height: 340,
     });
-    const candleSeries = chart.addCandlestickSeries({
+    const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#22c55e",
       downColor: "#ef4444",
       borderUpColor: "#22c55e",
