@@ -10,6 +10,7 @@ import {
 } from "lightweight-charts";
 import api from "@/lib/api";
 import { wsUrl } from "@/lib/ws";
+import { useAuthStore } from "@/store/authStore";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,7 @@ const INTERVALS = ["1m", "5m", "1h", "1d"];
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const { accessToken } = useAuthStore();
   const [symbol, setSymbol] = useState("BTCUSDT");
   const [interval, setInterval] = useState("1h");
   const [ticker, setTicker] = useState<Ticker | null>(null);
@@ -167,6 +169,35 @@ export default function DashboardPage() {
       })
       .catch(() => {});
   }, []);
+
+  // ── WebSocket: live fill notifications ───────────────────────────────────────
+  useEffect(() => {
+    if (!accessToken) return;
+    const ws = new WebSocket(wsUrl(`/user/orders?token=${accessToken}`));
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.order_status === "FILLED" || msg.order_status === "PARTIALLY_FILLED") {
+          const shortId = (msg.order_id ?? "").substring(0, 8);
+          const fillQty = parseFloat(msg.fill_quantity ?? "0").toFixed(4);
+          const fillPx = parseFloat(msg.fill_price ?? "0").toLocaleString();
+          setOrderMsg(
+            `✓ ${msg.order_status}: ${msg.side} ${fillQty} ${msg.symbol} @ ${fillPx} [${shortId}…]`
+          );
+          // Refresh wallet balance after fill
+          api
+            .get("/api/wallet/simulation")
+            .then((res) => {
+              const usdt = res.data.find((w: WalletBalance) => w.currency === "USDT");
+              if (usdt) setWallet(usdt);
+            })
+            .catch(() => {});
+        }
+      } catch (_) {}
+    };
+    ws.onerror = () => {};
+    return () => ws.close();
+  }, [accessToken]);
 
   // ── Submit order ─────────────────────────────────────────────────────────────
   async function handleOrder(e: React.FormEvent) {
