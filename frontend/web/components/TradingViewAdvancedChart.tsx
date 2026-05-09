@@ -63,7 +63,6 @@ export default function TradingViewAdvancedChart({
 
     const init = async () => {
       await loadScript("tv-charting-library", "/charting_library/charting_library.standalone.js");
-      await loadScript("tv-udf-datafeed", "/datafeeds/udf/dist/bundle.js");
 
       if (!mounted || !window.TradingView || !containerRef.current) return;
 
