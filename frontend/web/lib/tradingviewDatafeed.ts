@@ -113,7 +113,7 @@ const getSymbolHistories = async ({
   symbol: string;
 }): Promise<Kline[]> => {
   const interval = resolutionToInterval(resolution);
-  const requestedBars = Math.max(200, Math.min(2000, Math.ceil((to - from) / 60)));
+  const requestedBars = Math.max(200, Math.min(1000, Math.ceil((to - from) / 60)));
   const candles = await getKlines(symbol, interval, requestedBars);
 
   return candles.filter((k) => {
