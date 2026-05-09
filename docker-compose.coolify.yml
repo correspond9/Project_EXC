@@ -51,7 +51,7 @@ services:
     build:
       context: ./infrastructure/nginx
     container_name: xchange-nginx
-    ports:
+    expose:
       - "80"
     depends_on:
       - user-service
@@ -65,6 +65,24 @@ services:
       - web-frontend
     networks:
       - xchange-net
+      - coolify
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=coolify"
+      # HTTP — redirect to HTTPS
+      - "traefik.http.routers.xchange-http.rule=Host(`xchangebyte.com`) || Host(`www.xchangebyte.com`)"
+      - "traefik.http.routers.xchange-http.entrypoints=http"
+      - "traefik.http.routers.xchange-http.middlewares=xchange-redirect-https"
+      # HTTPS — main router with Let's Encrypt
+      - "traefik.http.routers.xchange-https.rule=Host(`xchangebyte.com`) || Host(`www.xchangebyte.com`)"
+      - "traefik.http.routers.xchange-https.entrypoints=https"
+      - "traefik.http.routers.xchange-https.tls=true"
+      - "traefik.http.routers.xchange-https.tls.certresolver=letsencrypt"
+      # Service — nginx listens on port 80 internally
+      - "traefik.http.services.xchange-nginx.loadbalancer.server.port=80"
+      # Redirect middleware
+      - "traefik.http.middlewares.xchange-redirect-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.xchange-redirect-https.redirectscheme.permanent=true"
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -257,4 +275,6 @@ volumes:
 networks:
   xchange-net:
     driver: bridge
+  coolify:
+    external: true
 
