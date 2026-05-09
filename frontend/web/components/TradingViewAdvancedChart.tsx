@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import datafeed from "@/lib/tradingviewDatafeed";
 
 declare global {
@@ -56,6 +56,19 @@ export default function TradingViewAdvancedChart({
   locale = "en",
 }: TradingViewAdvancedChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [chartTheme, setChartTheme] = useState<"light" | "dark">("dark");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyTheme = () => setChartTheme(media.matches ? "dark" : "light");
+
+    applyTheme();
+
+    media.addEventListener("change", applyTheme);
+    return () => media.removeEventListener("change", applyTheme);
+  }, []);
 
   useEffect(() => {
     let tvWidget: { remove: () => void } | null = null;
@@ -69,6 +82,7 @@ export default function TradingViewAdvancedChart({
       tvWidget = new window.TradingView.widget({
         container: containerRef.current,
         locale,
+        theme: chartTheme,
         library_path: "/charting_library/",
         datafeed,
         symbol,
@@ -85,7 +99,7 @@ export default function TradingViewAdvancedChart({
       mounted = false;
       tvWidget?.remove();
     };
-  }, [interval, locale, symbol]);
+  }, [chartTheme, interval, locale, symbol]);
 
   return <div ref={containerRef} style={{ width: "100%", height: 420 }} />;
 }
