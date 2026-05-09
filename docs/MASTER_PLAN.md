@@ -89,7 +89,7 @@ The same account can hold both wallets — the active mode determines which wall
 
 ### 5.2 Market Data
 - Live price feed from Binance WebSocket (real-time, in both modes)
-- Candlestick (OHLCV) charts — TradingView Lightweight Charts library
+- Candlestick (OHLCV) charts — TradingView Charting Library (Advanced Charts, v27.004) with UDF-compatible datafeed
 - Price alerts (user-configurable)
 - Market overview page (all supported pairs, 24h stats)
 
@@ -151,7 +151,7 @@ Chosen based on: solo developer, existing VPS (Coolify), maintainability, and op
 | Component | Technology |
 |-----------|-----------|
 | Framework | **React + TypeScript** (Next.js) |
-| Charts | **TradingView Lightweight Charts** (open source, free) |
+| Charts | **TradingView Charting Library** (Advanced Charts v27.004) + **UDF datafeed adapter** |
 | State Management | **Zustand** (simple, lightweight) |
 | Internationalisation | Not required — English only |
 | UI Component Library | **shadcn/ui** (modern, accessible, customisable) |
@@ -177,7 +177,7 @@ Chosen based on: solo developer, existing VPS (Coolify), maintainability, and op
 | Library | Used For |
 |---------|---------|
 | CCXT | Binance and exchange API connectivity |
-| TradingView Lightweight Charts | Candlestick and trading charts |
+| TradingView Charting Library (Advanced Charts) | Candlestick and trading charts |
 | python-binance | Binance WebSocket stream (price feed) |
 | ccxt | Order routing in live mode |
 | django-rest-framework (reference) | Authentication patterns reference |
@@ -351,7 +351,7 @@ These are logical groupings (detailed schema per service to be done in Phase 1 d
 | 1 | Python + FastAPI for backend | Developer familiarity, async performance, clean |
 | 2 | Custom build, not HollaEx/Peatio fork | Those are Node.js/Ruby; adds more complexity than value |
 | 3 | CCXT for exchange connectivity | Industry standard, supports Binance + 100 other exchanges |
-| 4 | TradingView Lightweight Charts (free tier) | Open source, professional-grade, no licensing cost |
+| 4 | TradingView Charting Library v27.004 + UDF adapter | Full-featured professional charting integrated with backend market data |
 | 5 | React Native for mobile | Code sharing with web, single team can maintain |
 | 6 | Options routing TBD | Binance options limited; Deribit/Bybit to be evaluated in Phase 4 |
 | 7 | Single account, two wallet states | Students migrate seamlessly to live trading |

@@ -1,17 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  createChart,
-  IChartApi,
-  ISeriesApi,
-  CandlestickData,
-  CrosshairMode,
-  CandlestickSeries,
-} from "lightweight-charts";
+import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { wsUrl } from "@/lib/ws";
 import { useAuthStore } from "@/store/authStore";
+import TradingViewAdvancedChart from "@/components/TradingViewAdvancedChart";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -110,82 +103,6 @@ export default function DashboardPage() {
   const [optQty, setOptQty] = useState("0.01");
   const [optMsg, setOptMsg] = useState("");
   const [optPositions, setOptPositions] = useState<OptionsPosition[]>([]);
-
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const candleSeriesRef = useRef<ISeriesApi<"Candlestick", any> | null>(null);
-
-  // ── Init chart ───────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!chartContainerRef.current) return;
-    const chart = createChart(chartContainerRef.current, {
-      layout: { background: { color: "#1c2030" }, textColor: "#e2e8f0" },
-      grid: { vertLines: { color: "#2a3045" }, horzLines: { color: "#2a3045" } },
-      crosshair: { mode: CrosshairMode.Normal },
-      timeScale: { timeVisible: true, secondsVisible: false },
-      width: chartContainerRef.current.clientWidth,
-      height: 340,
-    });
-    const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: "#22c55e",
-      downColor: "#ef4444",
-      borderUpColor: "#22c55e",
-      borderDownColor: "#ef4444",
-      wickUpColor: "#22c55e",
-      wickDownColor: "#ef4444",
-    });
-    chartRef.current = chart;
-    candleSeriesRef.current = candleSeries;
-
-    const handleResize = () => {
-      if (chartContainerRef.current)
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-    };
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      chart.remove();
-    };
-  }, []);
-
-  // ── Load historical klines ───────────────────────────────────────────────────
-  useEffect(() => {
-    if (!candleSeriesRef.current) return;
-    api
-      .get(`/api/market/klines/${symbol}`, { params: { interval, limit: 200 } })
-      .then((res) => {
-        const data: CandlestickData[] = res.data.map((k: any) => ({
-          time: Math.floor(k.open_time / 1000) as any,
-          open: parseFloat(k.open_price),
-          high: parseFloat(k.high_price),
-          low: parseFloat(k.low_price),
-          close: parseFloat(k.close_price),
-        }));
-        candleSeriesRef.current?.setData(data);
-        chartRef.current?.timeScale().fitContent();
-      })
-      .catch(() => {});
-  }, [symbol, interval]);
-
-  // ── WebSocket: live candle updates ───────────────────────────────────────────
-  useEffect(() => {
-    const ws = new WebSocket(wsUrl(`/market/${symbol}/kline/${interval}`));
-    ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data);
-        if (msg.error) return;
-        const candle: CandlestickData = {
-          time: Math.floor(msg.open_time / 1000) as any,
-          open: parseFloat(msg.open_price),
-          high: parseFloat(msg.high_price),
-          low: parseFloat(msg.low_price),
-          close: parseFloat(msg.close_price),
-        };
-        candleSeriesRef.current?.update(candle);
-      } catch (_) {}
-    };
-    return () => ws.close();
-  }, [symbol, interval]);
 
   // ── WebSocket: live ticker ───────────────────────────────────────────────────
   useEffect(() => {
@@ -462,7 +379,7 @@ export default function DashboardPage() {
 
         {/* Chart */}
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div ref={chartContainerRef} style={{ width: "100%" }} />
+          <TradingViewAdvancedChart symbol={symbol} interval={interval} />
         </div>
 
         {/* Order book */}

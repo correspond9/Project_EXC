@@ -282,7 +282,7 @@ xchange-platform/
 
 #### Web Frontend — Project Setup
 - [ ] Create Next.js + TypeScript project inside `frontend/web/`
-- [ ] Install: shadcn/ui, Zustand, TradingView Lightweight Charts, axios
+- [ ] Install: shadcn/ui, Zustand, TradingView Charting Library assets (Advanced Charts), axios
 - [ ] Configure Nginx to serve the Next.js app
 - [ ] Environment variables: `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_WS_BASE_URL`
 - [ ] Routing structure:
@@ -300,7 +300,7 @@ xchange-platform/
 
 #### Trading Dashboard UI
 - [ ] Market selector — dropdown of all active trading pairs
-- [ ] TradingView Lightweight Chart — candlestick chart (OHLCV), connects to WebSocket for live candle updates
+- [ ] TradingView Advanced Chart (Charting Library) — candlestick chart (OHLCV), integrated via UDF-compatible datafeed
 - [ ] Live price ticker — updates in real time from WebSocket
 - [ ] Order book display — shows top 10 bid/ask levels, updates in real time
 - [ ] Order entry form:

@@ -136,8 +136,7 @@ make seed      # Run database seed scripts
 | Push to `main` | Build images → push to `ghcr.io` → deploy via Coolify webhook |
 
 **Required GitHub Secrets** (Settings → Secrets → Actions):
-- `COOLIFY_WEBHOOK_URL` — Your Coolify deploy webhook URL
-- `COOLIFY_WEBHOOK_TOKEN` — Your Coolify webhook token
+- `PROJECT_EXC_COOLIFY_DEPLOY_TOKEN` — Dedicated Coolify deploy token for the Project_EXC app
 
 ---
 

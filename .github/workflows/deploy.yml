@@ -8,6 +8,8 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/correspond9/project_exc
+  # Fixed webhook URL for the Project_EXC app in Coolify (xchangebyte/production).
+  COOLIFY_PROJECT_EXC_WEBHOOK_URL: http://72.62.228.112:8000/api/v1/deploy?uuid=x8gg0og8440wkgc8ow0ococs&force=false
 
 jobs:
   # ============================================================
@@ -150,9 +152,8 @@ jobs:
 
   # ============================================================
   # JOB 4: Trigger Coolify deploy after all images are pushed
-  # Requires GitHub Secrets:
-  #   COOLIFY_WEBHOOK_URL   — from Coolify project settings
-  #   COOLIFY_WEBHOOK_TOKEN — from Coolify project settings
+  # Requires GitHub Secret:
+  #   PROJECT_EXC_COOLIFY_DEPLOY_TOKEN — dedicated token for Project_EXC app deploy
   # ============================================================
   deploy:
     name: Trigger Coolify Deploy
@@ -165,8 +166,8 @@ jobs:
       - name: Trigger Coolify webhook
         run: |
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X GET "${{ secrets.COOLIFY_WEBHOOK_URL }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_WEBHOOK_TOKEN }}")
+            -X GET "${{ env.COOLIFY_PROJECT_EXC_WEBHOOK_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.PROJECT_EXC_COOLIFY_DEPLOY_TOKEN }}")
 
           echo "Coolify webhook response: HTTP $HTTP_STATUS"
 

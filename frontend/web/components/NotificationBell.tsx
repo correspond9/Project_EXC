@@ -48,8 +48,13 @@ export default function NotificationBell() {
   useEffect(() => {
     if (!accessToken) return;
 
+    const runtimeWsBase =
+      typeof window !== "undefined"
+        ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`
+        : "";
+
     const wsBase =
-      (process.env.NEXT_PUBLIC_WS_BASE_URL || "ws://localhost/ws")
+      (process.env.NEXT_PUBLIC_WS_BASE_URL?.trim() || runtimeWsBase)
         .replace(/\/$/, "")
         .replace(/\/ws$/, ""); // strip trailing /ws — we'll add /ws/user/notifications
 

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { createChart, ColorType, AreaSeries } from "lightweight-charts";
+import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { wsUrl } from "@/lib/ws";
 import { useAuthStore } from "@/store/authStore";
@@ -57,9 +56,6 @@ export default function PortfolioPage() {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [liveSummary, setLiveSummary] = useState<Summary | null>(null);
 
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
-
   // ── Initial REST fetch ──────────────────────────────────────────────────
   useEffect(() => {
     Promise.all([
@@ -74,49 +70,47 @@ export default function PortfolioPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // ── P&L history chart ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (!chartContainerRef.current || pnlHistory.length === 0) return;
+  const portfolioTrend = useMemo(() => {
+    const values = pnlHistory
+      .map((p) => ({ date: p.date, value: parseFloat(p.total_portfolio_value) }))
+      .filter((p) => Number.isFinite(p.value));
 
-    const chart = createChart(chartContainerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: "#1c2030" },
-        textColor: "#64748b",
-      },
-      grid: {
-        vertLines: { color: "#2a3045" },
-        horzLines: { color: "#2a3045" },
-      },
-      width: chartContainerRef.current.clientWidth,
-      height: 180,
-    });
+    if (values.length === 0) {
+      return null;
+    }
 
-    const areaSeries = chart.addSeries(AreaSeries, {
-      lineColor: "#3b82f6",
-      topColor: "rgba(59,130,246,0.25)",
-      bottomColor: "rgba(59,130,246,0.02)",
-    });
+    const width = 900;
+    const height = 180;
+    const padding = 16;
 
-    areaSeries.setData(
-      pnlHistory.map((p) => ({
-        time: p.date,
-        value: parseFloat(p.total_portfolio_value),
-      }))
-    );
+    const min = Math.min(...values.map((v) => v.value));
+    const max = Math.max(...values.map((v) => v.value));
+    const range = Math.max(1, max - min);
 
-    chart.timeScale().fitContent();
-    chartRef.current = chart;
+    const xAt = (index: number) => {
+      if (values.length === 1) return width / 2;
+      return padding + (index / (values.length - 1)) * (width - padding * 2);
+    };
 
-    const resizeObserver = new ResizeObserver(() => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-      }
-    });
-    resizeObserver.observe(chartContainerRef.current);
+    const yAt = (value: number) => {
+      return padding + ((max - value) / range) * (height - padding * 2);
+    };
 
-    return () => {
-      resizeObserver.disconnect();
-      chart.remove();
+    const linePath = values
+      .map((point, index) => `${index === 0 ? "M" : "L"} ${xAt(index)} ${yAt(point.value)}`)
+      .join(" ");
+
+    const areaPath = `${linePath} L ${xAt(values.length - 1)} ${height - padding} L ${xAt(0)} ${height - padding} Z`;
+
+    return {
+      width,
+      height,
+      linePath,
+      areaPath,
+      min,
+      max,
+      startDate: values[0].date,
+      endDate: values[values.length - 1].date,
     };
   }, [pnlHistory]);
 
@@ -206,12 +200,28 @@ export default function PortfolioPage() {
       )}
 
       {/* ── P&L history chart ── */}
-      {pnlHistory.length > 0 && (
+      {portfolioTrend && (
         <div className="card">
           <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "0.75rem" }}>
             Portfolio Value — Last 30 Days
           </div>
-          <div ref={chartContainerRef} />
+          <div style={{ width: "100%", height: 180 }}>
+            <svg viewBox={`0 0 ${portfolioTrend.width} ${portfolioTrend.height}`} width="100%" height="100%" preserveAspectRatio="none" role="img" aria-label="Portfolio value trend chart">
+              <defs>
+                <linearGradient id="portfolioAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.03" />
+                </linearGradient>
+              </defs>
+              <path d={portfolioTrend.areaPath} fill="url(#portfolioAreaGradient)" />
+              <path d={portfolioTrend.linePath} fill="none" stroke="#3b82f6" strokeWidth="2" />
+            </svg>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.5rem" }}>
+            <span>{portfolioTrend.startDate}</span>
+            <span>Low: ${fmt(portfolioTrend.min)} | High: ${fmt(portfolioTrend.max)}</span>
+            <span>{portfolioTrend.endDate}</span>
+          </div>
         </div>
       )}
 
