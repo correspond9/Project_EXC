@@ -85,3 +85,35 @@
 
 ### Next Planned Step
 - Phase 2 Task 3: build API contract source-of-truth document and begin contract drift reconciliation.
+
+## 2026-05-10T13:20:00+05:30 — Live Container E2E Validation (Admin UI Top-up)
+
+### Issue Fixed
+- Runtime blocker discovered during live admin UI check: `GET /api/admin/users` returned 500 because `created_at` schema type in admin-service expected string while API returned datetime.
+- Runtime blocker discovered during live top-up check: wallet-service failed `POST /api/admin/wallet/topup` with FK resolution error due missing local users table mirror in SQLAlchemy metadata.
+- Cleanup fix applied to wallet-service duplicate `/health` definition to restore lint compliance and avoid route ambiguity.
+
+### Files Changed
+- `services/admin-service/app/schemas/admin.py`
+- `services/wallet-service/app/models/user_mirror.py`
+- `services/wallet-service/app/main.py`
+
+### Verification Performed
+- Docker stack started and verified running via compose.
+- Browser E2E through gateway on `http://localhost`:
+	- login as super admin succeeded
+	- navigate to Admin panel succeeded
+	- click Top Up for test student user succeeded
+	- success message shown in UI (`Credited 321.5 USDT to simulation wallet.`)
+- Persistence verified in PostgreSQL: `simulation_wallets.balance = 321.50000000` for test user.
+- Auth enforcement verified on gateway route:
+	- unauthenticated top-up rejected (`403 Not authenticated`)
+	- non-admin top-up rejected (`403 Admin access required`)
+- Lint and targeted tests rerun and passed after fixes.
+- Frontend production build rerun and passed.
+
+### Remaining Risks
+- This validation covered the critical admin wallet top-up path end-to-end; broader regression (other admin modules, websocket auth, and multi-service migration startup checks) remains for later phases.
+
+### Next Planned Step
+- Continue strict sequence at Phase 2 Task 3 (API contract source-of-truth and drift reconciliation).

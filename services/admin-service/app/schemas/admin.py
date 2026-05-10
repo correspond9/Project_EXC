@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -15,7 +16,7 @@ class UserSummary(BaseModel):
     is_active: bool
     live_trading_enabled: bool = True
     max_leverage_override: Optional[int] = None
-    created_at: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
