@@ -2,10 +2,14 @@ export type ResolutionString = string;
 
 type Kline = {
   open_time: number;
-  open_price: string;
-  high_price: string;
-  low_price: string;
-  close_price: string;
+  open?: string;
+  high?: string;
+  low?: string;
+  close?: string;
+  open_price?: string;
+  high_price?: string;
+  low_price?: string;
+  close_price?: string;
 };
 
 type Bar = {
@@ -82,6 +86,13 @@ const countDecimals = (value: string): number => {
   return decimals.length;
 };
 
+const getKlineValue = (kline: Kline, key: "open" | "high" | "low" | "close"): string => {
+  if (key === "open") return kline.open ?? kline.open_price ?? "0";
+  if (key === "high") return kline.high ?? kline.high_price ?? "0";
+  if (key === "low") return kline.low ?? kline.low_price ?? "0";
+  return kline.close ?? kline.close_price ?? "0";
+};
+
 const getKlines = async (symbol: string, interval: string, limit: number): Promise<Kline[]> => {
   const url = createApiUrl(`/api/market/klines/${encodeURIComponent(symbol)}`, {
     interval,
@@ -131,7 +142,7 @@ const datafeed = {
   },
   resolveSymbol: async (symbolName: string, onSymbolResolvedCallback: (info: LibrarySymbolInfo) => void) => {
     const quote = await getQuoteBySymbol(symbolName);
-    const closePrice = quote?.close_price || "1";
+    const closePrice = quote ? getKlineValue(quote, "close") : "1";
     const pricescale = Math.pow(10, Math.max(0, countDecimals(closePrice)));
 
     const symbolInfo = {
@@ -179,10 +190,10 @@ const datafeed = {
 
       const bars = rows.map((k) => ({
         time: k.open_time,
-        open: parseFloat(k.open_price),
-        high: parseFloat(k.high_price),
-        low: parseFloat(k.low_price),
-        close: parseFloat(k.close_price),
+        open: parseFloat(getKlineValue(k, "open")),
+        high: parseFloat(getKlineValue(k, "high")),
+        low: parseFloat(getKlineValue(k, "low")),
+        close: parseFloat(getKlineValue(k, "close")),
       }));
 
       onHistoryCallback(bars, { noData: false });
