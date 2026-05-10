@@ -3,12 +3,13 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, condecimal
-from sqlalchemy import func, select, text, or_
+from pydantic import BaseModel
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import settings
 from ..database import get_db
-from ..dependencies.auth import AdminContext, require_admin, require_admin_context
+from ..dependencies.auth import AdminContext, require_admin_context
 from ..models.position_limit import UserPositionLimit
 from ..models.user import KYCStatus, TradingMode, User
 from ..schemas.admin import (
@@ -103,6 +104,12 @@ async def update_trading_mode(
         raise HTTPException(
             status_code=400,
             detail="KYC must be APPROVED before enabling LIVE mode.",
+        )
+
+    if body.trading_mode == TradingMode.LIVE and not settings.AML_PROVIDER_URL:
+        raise HTTPException(
+            status_code=503,
+            detail="LIVE mode cannot be enabled while AML provider is not configured.",
         )
 
     user.trading_mode = body.trading_mode

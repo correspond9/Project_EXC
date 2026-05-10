@@ -139,6 +139,17 @@ async def approve_kyc(
             stage="KYC_APPROVAL",
         )
     except Exception as exc:
+        await write_audit_log(
+            db,
+            action="AML_CHECK_FAILED",
+            user_id=str(admin_user.id),
+            entity_type="User",
+            entity_id=str(user.id),
+            extra_data={
+                "stage": "KYC_APPROVAL",
+                "error": str(exc),
+            },
+        )
         raise HTTPException(
             status_code=503,
             detail=f"AML screening failed: {exc}",

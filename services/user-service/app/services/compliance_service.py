@@ -7,6 +7,10 @@ from ..config import get_settings
 settings = get_settings()
 
 
+class AMLProviderNotConfiguredError(RuntimeError):
+    pass
+
+
 @dataclass
 class AMLScreenResult:
     provider_name: str
@@ -25,15 +29,11 @@ class AMLScreenResult:
 async def aml_screen_user(*, user_id: str, email: str, stage: str) -> AMLScreenResult:
     """
     Call AML provider endpoint when configured.
-    If no provider URL is configured, return a safe stub result (CLEAR).
+    LIVE gating must fail closed when provider is not configured.
     """
     if not settings.AML_PROVIDER_URL:
-        return AMLScreenResult(
-            provider_name="INTERNAL_STUB",
-            decision="CLEAR",
-            risk_score=0.0,
-            matched_entities=[],
-            raw={"reason": "AML_PROVIDER_URL not configured"},
+        raise AMLProviderNotConfiguredError(
+            "AML provider is not configured (AML_PROVIDER_URL missing)."
         )
 
     headers = {"Content-Type": "application/json"}
